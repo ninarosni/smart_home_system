@@ -24,10 +24,18 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Dummy Firebase Config
+      - name: Create Firebase Config from Secrets or Dummy
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           mkdir -p android/app
-          echo '{"project_info":{"project_number":"0","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo '{"project_info":{"project_number":"0","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
+            echo "Using dummy Firebase config for Android"
+          else
+            echo "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+            echo "Using real Firebase config from secrets for Android"
+          fi
           
       - name: Get Dependencies
         run: flutter pub get
@@ -52,10 +60,18 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Dummy Firebase Config
+      - name: Create Firebase Config from Secrets or Dummy
+        env:
+          IOS_SERVICES_PLIST: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
           mkdir -p ios/Runner
-          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy-id</string><key>BUNDLE_ID</key><string>com.example.smartHomeSystem</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
+          if [ -z "$IOS_SERVICES_PLIST" ]; then
+            echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy-id</string><key>BUNDLE_ID</key><string>com.example.smartHomeSystem</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
+            echo "Using dummy Firebase config for iOS"
+          else
+            echo "$IOS_SERVICES_PLIST" > ios/Runner/GoogleService-Info.plist
+            echo "Using real Firebase config from secrets for iOS"
+          fi
           
       - name: Get Dependencies
         run: flutter pub get
