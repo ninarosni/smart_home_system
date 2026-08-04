@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_provider.dart';
-import 'settings_screen.dart';
 
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key});

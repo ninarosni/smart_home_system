@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/settings_screen.dart';
 
 void main() async {
   // Ensure Flutter is ready
@@ -76,17 +75,12 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
             messagingSenderId: provider.messagingSenderId ?? '',
             projectId: provider.projectId ?? '',
             databaseURL: provider.databaseUrl,
+            iosBundleId: provider.iosBundleId,
           ),
         );
       } else {
         debugPrint('FirebaseInit: Using default config');
-        try {
-          await Firebase.initializeApp();
-        } catch (e) {
-          debugPrint('FirebaseInit: Default initialization failed (likely missing google-services.json)');
-          // We don't throw here, because we want to allow the user to go to Settings
-          // to provide their own credentials.
-        }
+        await Firebase.initializeApp();
       }
       
       debugPrint('FirebaseInit: App Initialized');
@@ -95,25 +89,26 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       final email = provider.authEmail ?? "smarthome@project.com";
       final password = provider.authPassword ?? "123456";
       
-      try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        debugPrint('FirebaseInit: Signed in as $email');
-      } catch (e) {
-        debugPrint('FirebaseInit: Auth failed: $e');
-        // Again, don't block the app if auth fails; allow user to fix in settings
-      }
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('FirebaseInit: Signed in as $email');
       
       if (mounted) {
-        setState(() => _initialized = true);
+        setState(() {
+          _initialized = true;
+          _error = null;
+        });
         context.read<AppProvider>().onFirebaseReady();
       }
     } catch (e) {
       debugPrint('FirebaseInit: FAILED: $e');
       if (mounted) {
-        setState(() => _error = e.toString());
+        setState(() {
+          _initialized = false;
+          _error = e.toString();
+        });
       }
     }
   }

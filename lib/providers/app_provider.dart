@@ -129,40 +129,39 @@ class AppProvider with ChangeNotifier {
     
     FirebaseApp? app;
     try {
-      app = Firebase.app();
-    } catch (e) {
-      debugPrint('AppProvider: Default Firebase app not initialized');
-    }
-    
-    // If custom config exists, try to initialize a custom app
-    if (_apiKey != null && _appId != null) {
-      try {
-        app = await Firebase.initializeApp(
-          name: 'custom_home',
-          options: FirebaseOptions(
-            apiKey: _apiKey!,
-            appId: _appId!,
-            messagingSenderId: _messagingSenderId ?? '',
-            projectId: _projectId ?? '',
-            databaseURL: dbUrl,
-            iosBundleId: _iosBundleId,
-          ),
-        );
-      } catch (e) {
-        // If already initialized, just get it
-        if (e.toString().contains('duplicate-app')) {
-          app = Firebase.app('custom_home');
-        } else {
-          _errorMessage = 'Firebase Init Error: ${e.toString()}';
-          _isLoading = false;
-          notifyListeners();
-          return;
+      // Prefer custom app if configured, otherwise use default
+      if (_apiKey != null && _appId != null) {
+        try {
+          app = await Firebase.initializeApp(
+            name: 'custom_home',
+            options: FirebaseOptions(
+              apiKey: _apiKey!,
+              appId: _appId!,
+              messagingSenderId: _messagingSenderId ?? '',
+              projectId: _projectId ?? '',
+              databaseURL: dbUrl,
+              iosBundleId: _iosBundleId,
+            ),
+          );
+        } catch (e) {
+          if (e.toString().contains('duplicate-app')) {
+            app = Firebase.app('custom_home');
+          } else {
+            throw 'Custom Firebase Init Error: $e';
+          }
         }
+      } else {
+        app = Firebase.app();
       }
+    } catch (e) {
+      _errorMessage = 'Firebase not ready. Please check your configuration.';
+      _isLoading = false;
+      notifyListeners();
+      return;
     }
 
     if (app == null) {
-      _errorMessage = 'Firebase not initialized. Please check your settings.';
+      _errorMessage = 'Could not find a valid Firebase instance.';
       _isLoading = false;
       notifyListeners();
       return;
