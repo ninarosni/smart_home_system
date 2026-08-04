@@ -11,10 +11,10 @@ jobs:
     name: Build Android APK
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Java
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
@@ -24,6 +24,11 @@ jobs:
         with:
           flutter-version: '3.19.0'
           channel: 'stable'
+
+      - name: Create Dummy Firebase Config
+        run: |
+          mkdir -p android/app
+          echo '{"project_info":{"project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0"},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
           
       - name: Get Dependencies
         run: flutter pub get
@@ -32,7 +37,7 @@ jobs:
         run: flutter build apk --release
         
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
@@ -41,13 +46,18 @@ jobs:
     name: Build iOS App
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.19.0'
           channel: 'stable'
+
+      - name: Create Dummy Firebase Config
+        run: |
+          mkdir -p ios/Runner
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
           
       - name: Get Dependencies
         run: flutter pub get
@@ -61,7 +71,7 @@ jobs:
           zip -r ../../ios-build.zip Runner.app
           
       - name: Upload iOS Build
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release-ios
           path: build/ios-build.zip
