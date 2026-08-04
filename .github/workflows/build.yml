@@ -27,7 +27,7 @@ jobs:
       - name: Create Dummy Firebase Config
         run: |
           mkdir -p android/app
-          echo '{"project_info":{"project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0"},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
+          echo '{"project_info":{"project_number":"0","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
           
       - name: Get Dependencies
         run: flutter pub get
@@ -55,7 +55,7 @@ jobs:
       - name: Create Dummy Firebase Config
         run: |
           mkdir -p ios/Runner
-          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy-id</string><key>BUNDLE_ID</key><string>com.example.smartHomeSystem</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
           
       - name: Get Dependencies
         run: flutter pub get
