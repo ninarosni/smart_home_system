@@ -24,18 +24,45 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Firebase Config from Secrets or Dummy
+      - name: Inject Firebase Config into Dart
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          IOS_SERVICES_PLIST: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
-          mkdir -p android/app
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            printf "%s" "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
-            echo "Using real Firebase config from secrets for Android"
-          else
-            echo '{"project_info":{"project_number":"0","project_id":"dummy-id"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
-            echo "Using dummy Firebase config for Android"
-          fi
+          mkdir -p lib/config
+          python3 -c "import os, json, plistlib
+          try:
+            android_data = json.loads(os.environ.get('GOOGLE_SERVICES_JSON', '{}'))
+            a_api_key = android_data['client'][0]['api_key'][0]['current_key']
+            a_app_id = android_data['client'][0]['client_info']['mobilesdk_app_id']
+            project_id = android_data['project_info']['project_id']
+            project_num = android_data['project_info'].get('project_number', '')
+            db_url = android_data['project_info'].get('firebase_url', '')
+          except:
+            a_api_key = a_app_id = project_id = project_num = db_url = None
+          try:
+            plist_data = plistlib.loads(os.environ.get('IOS_SERVICES_PLIST', '').encode())
+            i_api_key = plist_data.get('API_KEY')
+            i_app_id = plist_data.get('GOOGLE_APP_ID')
+            i_bundle_id = plist_data.get('BUNDLE_ID')
+          except:
+            i_api_key = i_app_id = i_bundle_id = None
+          with open('lib/config/firebase_ci_config.dart', 'w') as f:
+            f.write('class FirebaseCiConfig {\n')
+            f.write(f'  static const String? apiKey = \"{i_api_key or a_api_key}\";\n')
+            f.write(f'  static const String? appId = \"{i_app_id or a_app_id}\";\n')
+            f.write(f'  static const String? messagingSenderId = \"{project_num}\";\n')
+            f.write(f'  static const String? projectId = \"{project_id}\";\n')
+            f.write(f'  static const String? databaseURL = \"{db_url}\";\n')
+            f.write(f'  static const String? iosBundleId = \"{i_bundle_id}\";\n')
+            f.write(\"  static bool get hasConfig => apiKey != null && appId != null && projectId != null;\\n\")
+            f.write(\"}\\n\")"
+
+      - name: Create Native Dummy Config (Keep build systems happy)
+        run: |
+          mkdir -p android/app ios/Runner
+          echo '{"project_info":{"project_number":"0","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
           
       - name: Get Dependencies
         run: flutter pub get
@@ -60,18 +87,44 @@ jobs:
         with:
           channel: 'stable'
 
-      - name: Create Firebase Config from Secrets or Dummy
+      - name: Inject Firebase Config into Dart
         env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
           IOS_SERVICES_PLIST: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
+          mkdir -p lib/config
+          python3 -c "import os, json, plistlib
+          try:
+            android_data = json.loads(os.environ.get('GOOGLE_SERVICES_JSON', '{}'))
+            a_api_key = android_data['client'][0]['api_key'][0]['current_key']
+            a_app_id = android_data['client'][0]['client_info']['mobilesdk_app_id']
+            project_id = android_data['project_info']['project_id']
+            project_num = android_data['project_info'].get('project_number', '')
+            db_url = android_data['project_info'].get('firebase_url', '')
+          except:
+            a_api_key = a_app_id = project_id = project_num = db_url = None
+          try:
+            plist_data = plistlib.loads(os.environ.get('IOS_SERVICES_PLIST', '').encode())
+            i_api_key = plist_data.get('API_KEY')
+            i_app_id = plist_data.get('GOOGLE_APP_ID')
+            i_bundle_id = plist_data.get('BUNDLE_ID')
+          except:
+            i_api_key = i_app_id = i_bundle_id = None
+          with open('lib/config/firebase_ci_config.dart', 'w') as f:
+            f.write('class FirebaseCiConfig {\n')
+            f.write(f'  static const String? apiKey = \"{i_api_key or a_api_key}\";\n')
+            f.write(f'  static const String? appId = \"{i_app_id or a_app_id}\";\n')
+            f.write(f'  static const String? messagingSenderId = \"{project_num}\";\n')
+            f.write(f'  static const String? projectId = \"{project_id}\";\n')
+            f.write(f'  static const String? databaseURL = \"{db_url}\";\n')
+            f.write(f'  static const String? iosBundleId = \"{i_bundle_id}\";\n')
+            f.write(\"  static bool get hasConfig => apiKey != null && appId != null && projectId != null;\\n\")
+            f.write(\"}\\n\")"
+
+      - name: Create Native Dummy Config (Keep build systems happy)
+        run: |
           mkdir -p ios/Runner
-          if [ -n "$IOS_SERVICES_PLIST" ]; then
-            printf "%s" "$IOS_SERVICES_PLIST" > ios/Runner/GoogleService-Info.plist
-            echo "Using real Firebase config from secrets for iOS"
-          else
-            echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy-id</string><key>BUNDLE_ID</key><string>com.example.smartHomeSystem</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
-            echo "Using dummy Firebase config for iOS"
-          fi
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
           
       - name: Get Dependencies
         run: flutter pub get

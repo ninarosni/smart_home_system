@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'config/firebase_ci_config.dart';
 
 void main() async {
   // Ensure Flutter is ready
@@ -65,9 +66,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       debugPrint('FirebaseInit: Starting...');
       final provider = context.read<AppProvider>();
       
-      // Attempt to initialize Firebase with custom options if available
+      // 1. Attempt to initialize with User-Provided Settings (from the app UI)
       if (provider.apiKey != null && provider.appId != null) {
-        debugPrint('FirebaseInit: Using custom config');
+        debugPrint('FirebaseInit: Using custom user config');
         await Firebase.initializeApp(
           options: FirebaseOptions(
             apiKey: provider.apiKey!,
@@ -78,8 +79,24 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
             iosBundleId: provider.iosBundleId,
           ),
         );
-      } else {
-        debugPrint('FirebaseInit: Using default config');
+      } 
+      // 2. Attempt to initialize with CI-Injected Secrets (from GitHub)
+      else if (FirebaseCiConfig.hasConfig) {
+        debugPrint('FirebaseInit: Using CI injected config');
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: FirebaseCiConfig.apiKey!,
+            appId: FirebaseCiConfig.appId!,
+            messagingSenderId: FirebaseCiConfig.messagingSenderId ?? '',
+            projectId: FirebaseCiConfig.projectId!,
+            databaseURL: FirebaseCiConfig.databaseURL,
+            iosBundleId: FirebaseCiConfig.iosBundleId,
+          ),
+        );
+      }
+      // 3. Fallback to default native config (google-services.json / GoogleService-Info.plist)
+      else {
+        debugPrint('FirebaseInit: Using default native config');
         await Firebase.initializeApp();
       }
       
