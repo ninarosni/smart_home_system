@@ -15,10 +15,25 @@ Every time you push code to the `main` branch of your GitHub repository, a "Virt
 The build from GitHub Actions is **unsigned**. To install it on an iPhone, you have a few options:
 
 ### Option A: Using AltStore (Free, No Mac Needed)
-1. Install **AltStore** on your iPhone and computer (Windows/Mac).
-2. Transfer the `Runner.app` (from the downloaded zip) to your iPhone.
-3. Open AltStore on your iPhone, go to "My Apps," and click the "+" icon to install the app.
-4. *Note: You must refresh the app every 7 days via AltStore.*
+AltStore expects a `.ipa` file. I've updated the automated build to provide this for you.
+
+1. **Download the IPA**:
+   - Go to GitHub Actions and download `release-ios`. 
+   - Extract the zip to get `smart_home.ipa`.
+2. **Transfer to iPhone**:
+   - **Method 1 (iCloud/Google Drive)**: Upload the `.ipa` to your drive, then open the Drive app on your iPhone and save the file to the "Files" app.
+   - **Method 2 (AirDrop/Cable)**: Send the file directly to your phone.
+3. **Install in AltStore**:
+   - Open the **AltStore** app on your iPhone.
+   - Go to the **"My Apps"** tab.
+   - Tap the **"+"** icon in the top-left corner.
+   - Select the `smart_home.ipa` file you just saved to your phone.
+   - If prompted, sign in with your Apple ID.
+4. **Trust the App**:
+   - Go to iPhone **Settings > General > VPN & Device Management**.
+   - Tap on your Apple ID and select **"Trust"**.
+
+*Note: You must refresh the app every 7 days via AltStore.*
 
 ### Option B: Local Build (Requires Mac & Xcode)
 If you have access to a Mac:

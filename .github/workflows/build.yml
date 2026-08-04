@@ -63,13 +63,15 @@ jobs:
       - name: Build iOS (No Sign)
         run: flutter build ios --release --no-codesign
         
-      - name: Compress iOS Build
+      - name: Create IPA structure
         run: |
+          mkdir -p build/ios/iphoneos/Payload
+          mv build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
-          zip -r ../../ios-build.zip Runner.app
+          zip -r ../../smart_home.ipa Payload
           
       - name: Upload iOS Build
         uses: actions/upload-artifact@v4
         with:
           name: release-ios
-          path: build/ios-build.zip
+          path: build/smart_home.ipa
