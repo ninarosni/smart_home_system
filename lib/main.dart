@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/settings_screen.dart';
 import 'config/firebase_secrets.dart';
 
 void main() async {
@@ -173,7 +174,20 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                ElevatedButton(onPressed: _init, child: const Text('RETRY')),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(onPressed: _init, child: const Text('RETRY')),
+                    const SizedBox(width: 12),
+                    OutlinedButton(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                      ),
+                      child: const Text('CONFIGURE MANUALLY'),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

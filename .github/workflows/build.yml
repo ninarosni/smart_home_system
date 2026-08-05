@@ -26,33 +26,51 @@ jobs:
 
       - name: Inject Secrets into Dart
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          IOS_SERVICES_PLIST_B64: ${{ secrets.IOS_SERVICES_PLIST }}
+          GOOGLE_SERVICES_JSON_RAW: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          IOS_SERVICES_PLIST_RAW: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
           cat << 'EOF' > inject_secrets.py
           import os, base64, json, plistlib
           def get_val(v): return f'"{v}"' if v else 'null'
+          def try_decode(raw):
+              if not raw: return None
+              # 1. Try Base64
+              try:
+                  return base64.b64decode(raw).decode()
+              except: pass
+              # 2. Assume Plain Text
+              return raw
+
+          # Initialize
           api_key = app_id = sender_id = project_id = db_url = bundle_id = None
+          
+          # Android Parsing
           try:
-              b64 = os.environ.get('GOOGLE_SERVICES_JSON_B64', '')
-              if b64:
-                  data = json.loads(base64.b64decode(b64).decode())
+              content = try_decode(os.environ.get('GOOGLE_SERVICES_JSON_RAW', ''))
+              if content:
+                  data = json.loads(content)
                   project_id = data['project_info']['project_id']
                   sender_id = data['project_info'].get('project_number')
                   db_url = data['project_info'].get('firebase_url')
                   client = data['client'][0]
                   api_key = client['api_key'][0]['current_key']
                   app_id = client['client_info']['mobilesdk_app_id']
+                  print(f"Android keys extracted: {project_id}")
           except Exception as e: print(f'Android parse failed: {e}')
+          
+          # iOS Parsing
           try:
-              b64 = os.environ.get('IOS_SERVICES_PLIST_B64', '')
-              if b64:
-                  data = plistlib.loads(base64.b64decode(b64))
+              content = try_decode(os.environ.get('IOS_SERVICES_PLIST_RAW', ''))
+              if content:
+                  # plistlib needs bytes
+                  data = plistlib.loads(content.encode() if isinstance(content, str) else content)
                   api_key = data.get('API_KEY', api_key)
                   app_id = data.get('GOOGLE_APP_ID', app_id)
                   project_id = data.get('PROJECT_ID', project_id)
                   bundle_id = data.get('BUNDLE_ID')
+                  print(f"iOS keys extracted: {project_id}")
           except Exception as e: print(f'iOS parse failed: {e}')
+
           with open('lib/config/firebase_secrets.dart', 'w') as f:
               f.write('class FirebaseSecrets {\n')
               f.write(f'  static const String? apiKey = {get_val(api_key)};\n')
@@ -101,33 +119,51 @@ jobs:
 
       - name: Inject Secrets into Dart
         env:
-          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
-          IOS_SERVICES_PLIST_B64: ${{ secrets.IOS_SERVICES_PLIST }}
+          GOOGLE_SERVICES_JSON_RAW: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          IOS_SERVICES_PLIST_RAW: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
           cat << 'EOF' > inject_secrets.py
           import os, base64, json, plistlib
           def get_val(v): return f'"{v}"' if v else 'null'
+          def try_decode(raw):
+              if not raw: return None
+              # 1. Try Base64
+              try:
+                  return base64.b64decode(raw).decode()
+              except: pass
+              # 2. Assume Plain Text
+              return raw
+
+          # Initialize
           api_key = app_id = sender_id = project_id = db_url = bundle_id = None
+          
+          # Android Parsing
           try:
-              b64 = os.environ.get('GOOGLE_SERVICES_JSON_B64', '')
-              if b64:
-                  data = json.loads(base64.b64decode(b64).decode())
+              content = try_decode(os.environ.get('GOOGLE_SERVICES_JSON_RAW', ''))
+              if content:
+                  data = json.loads(content)
                   project_id = data['project_info']['project_id']
                   sender_id = data['project_info'].get('project_number')
                   db_url = data['project_info'].get('firebase_url')
                   client = data['client'][0]
                   api_key = client['api_key'][0]['current_key']
                   app_id = client['client_info']['mobilesdk_app_id']
+                  print(f"Android keys extracted: {project_id}")
           except Exception as e: print(f'Android parse failed: {e}')
+          
+          # iOS Parsing
           try:
-              b64 = os.environ.get('IOS_SERVICES_PLIST_B64', '')
-              if b64:
-                  data = plistlib.loads(base64.b64decode(b64))
+              content = try_decode(os.environ.get('IOS_SERVICES_PLIST_RAW', ''))
+              if content:
+                  # plistlib needs bytes
+                  data = plistlib.loads(content.encode() if isinstance(content, str) else content)
                   api_key = data.get('API_KEY', api_key)
                   app_id = data.get('GOOGLE_APP_ID', app_id)
                   project_id = data.get('PROJECT_ID', project_id)
                   bundle_id = data.get('BUNDLE_ID')
+                  print(f"iOS keys extracted: {project_id}")
           except Exception as e: print(f'iOS parse failed: {e}')
+
           with open('lib/config/firebase_secrets.dart', 'w') as f:
               f.write('class FirebaseSecrets {\n')
               f.write(f'  static const String? apiKey = {get_val(api_key)};\n')
