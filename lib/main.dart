@@ -81,9 +81,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
           ),
         );
       } 
-      // 2. Initialize with CI-Injected Secrets (if available)
+      // 2. Initialize with CI-Injected Secrets (Bulletproof for Cloud Builds)
       else if (FirebaseSecrets.apiKey != null) {
-        debugPrint('FirebaseInit: Using CI secrets');
+        debugPrint('FirebaseInit: Using CI Secrets');
         await Firebase.initializeApp(
           options: FirebaseOptions(
             apiKey: FirebaseSecrets.apiKey!,
@@ -95,9 +95,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
           ),
         );
       }
-      // 3. Fallback to native config files
+      // 3. Fallback to Native config files
       else {
-        debugPrint('FirebaseInit: Using default native config');
+        debugPrint('FirebaseInit: Standard native initialization');
         await Firebase.initializeApp();
       }
       
@@ -125,13 +125,6 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     
-    // BYPASS INITIALIZER IF:
-    // 1. We are already receiving data.
-    // 2. The user has provided custom keys (let the RootNavigator handle its own errors).
-    if (provider.deviceData != null || provider.apiKey != null) {
-      return const RootNavigator();
-    }
-
     if (!provider.isConfigLoaded) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),

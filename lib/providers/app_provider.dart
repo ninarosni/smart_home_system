@@ -5,6 +5,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/device_data.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
+import '../config/firebase_secrets.dart';
+import 'dart:convert';
 
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -31,6 +33,7 @@ class AppProvider with ChangeNotifier {
   Timer? _loadingTimeoutTimer;
 
   bool _isFirebaseReady = false;
+  bool _isGlobalHandshakeDone = false;
 
   AppProvider() {
     _loadConfig();
@@ -39,6 +42,7 @@ class AppProvider with ChangeNotifier {
 
   void onFirebaseReady() {
     _isFirebaseReady = true;
+    _isGlobalHandshakeDone = true;
     if (_projectId != null) {
       _initFirebase();
     }
@@ -106,6 +110,11 @@ class AppProvider with ChangeNotifier {
     _authEmail = auth['email'];
     _authPassword = auth['password'];
     
+    // Auto-Discovery from CI Secrets
+    if (_projectId == null) {
+      _tryAutoConfigureFromCI();
+    }
+
     _isConfigLoaded = true;
     if (_projectId != null && _isFirebaseReady) {
       _initFirebase();
@@ -115,7 +124,30 @@ class AppProvider with ChangeNotifier {
     }
   }
 
+  void _tryAutoConfigureFromCI() {
+    try {
+      debugPrint('AppProvider: Auto-Discovery from CI...');
+      
+      if (_projectId == null && FirebaseSecrets.projectId != null) {
+        _projectId = FirebaseSecrets.projectId;
+        _apiKey = FirebaseSecrets.apiKey;
+        _appId = FirebaseSecrets.appId;
+        _databaseUrl = FirebaseSecrets.databaseURL;
+        _iosBundleId = FirebaseSecrets.iosBundleId;
+        _messagingSenderId = FirebaseSecrets.messagingSenderId;
+        debugPrint('AppProvider: Auto-configured for $_projectId');
+      }
+    } catch (e) {
+      debugPrint('AppProvider: Auto-config failed: $e');
+    }
+  }
+
   void _initFirebase() async {
+    if (!_isGlobalHandshakeDone) {
+      debugPrint('AppProvider: Waiting for global handshake...');
+      return;
+    }
+
     if (_projectId == null) {
       _isLoading = false;
       notifyListeners();
