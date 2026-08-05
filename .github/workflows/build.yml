@@ -31,32 +31,47 @@ jobs:
         run: |
           mkdir -p lib/config
           python3 -c "import os, json, plistlib
+          def escape(v): return f'\"{v}\"' if v else 'null'
+          
+          # Read and Parse Android
+          a_api_key = a_app_id = project_id = project_num = db_url = None
           try:
-            android_data = json.loads(os.environ.get('GOOGLE_SERVICES_JSON', '{}'))
-            a_api_key = android_data['client'][0]['api_key'][0]['current_key']
-            a_app_id = android_data['client'][0]['client_info']['mobilesdk_app_id']
-            project_id = android_data['project_info']['project_id']
-            project_num = android_data['project_info'].get('project_number', '')
-            db_url = android_data['project_info'].get('firebase_url', '')
-          except:
-            a_api_key = a_app_id = project_id = project_num = db_url = None
+              data = json.loads(os.environ.get('GOOGLE_SERVICES_JSON', '{}'))
+              a_api_key = data['client'][0]['api_key'][0]['current_key']
+              a_app_id = data['client'][0]['client_info']['mobilesdk_app_id']
+              project_id = data['project_info']['project_id']
+              project_num = data['project_info'].get('project_number')
+              db_url = data['project_info'].get('firebase_url')
+          except: pass
+          
+          # Read and Parse iOS
+          i_api_key = i_app_id = i_bundle_id = None
           try:
-            plist_data = plistlib.loads(os.environ.get('IOS_SERVICES_PLIST', '').encode())
-            i_api_key = plist_data.get('API_KEY')
-            i_app_id = plist_data.get('GOOGLE_APP_ID')
-            i_bundle_id = plist_data.get('BUNDLE_ID')
-          except:
-            i_api_key = i_app_id = i_bundle_id = None
+              data = plistlib.loads(os.environ.get('IOS_SERVICES_PLIST', '').encode())
+              i_api_key = data.get('API_KEY')
+              i_app_id = data.get('GOOGLE_APP_ID')
+              i_bundle_id = data.get('BUNDLE_ID')
+          except: pass
+          
+          # Prioritize iOS values for iOS build if script is platform-aware (keeping it simple for now)
+          api_key = i_api_key or a_api_key
+          app_id = i_app_id or a_app_id
+          
           with open('lib/config/firebase_ci_config.dart', 'w') as f:
-            f.write('class FirebaseCiConfig {\n')
-            f.write(f'  static const String? apiKey = \"{i_api_key or a_api_key}\";\n')
-            f.write(f'  static const String? appId = \"{i_app_id or a_app_id}\";\n')
-            f.write(f'  static const String? messagingSenderId = \"{project_num}\";\n')
-            f.write(f'  static const String? projectId = \"{project_id}\";\n')
-            f.write(f'  static const String? databaseURL = \"{db_url}\";\n')
-            f.write(f'  static const String? iosBundleId = \"{i_bundle_id}\";\n')
-            f.write(\"  static bool get hasConfig => apiKey != null && appId != null && projectId != null;\\n\")
-            f.write(\"}\\n\")"
+              f.write('class FirebaseCiConfig {\n')
+              f.write(f'  static const String? apiKey = {escape(api_key)};\n')
+              f.write(f'  static const String? appId = {escape(app_id)};\n')
+              f.write(f'  static const String? messagingSenderId = {escape(project_num)};\n')
+              f.write(f'  static const String? projectId = {escape(project_id)};\n')
+              f.write(f'  static const String? databaseURL = {escape(db_url)};\n')
+              f.write(f'  static const String? iosBundleId = {escape(i_bundle_id)};\n')
+              f.write('  static bool get hasConfig => apiKey != null && appId != null && projectId != null;\n')
+              f.write('  static String get debugDescription {\n')
+              f.write('    return \"API Key: ${apiKey != null ? \\\"FOUND\\\" : \"MISSING\"}, \"\n')
+              f.write('           \"App ID: ${appId != null ? \\\"FOUND\\\" : \"MISSING\"}, \"\n')
+              f.write('           \"Project ID: ${projectId != null ? \\\"FOUND\\\" : \"MISSING\"}\";\n')
+              f.write('  }\n')
+              f.write('}\n')"
 
       - name: Create Native Dummy Config (Keep build systems happy)
         run: |

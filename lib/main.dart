@@ -152,7 +152,24 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
                 const SizedBox(height: 16),
                 const Text('Firebase Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text(_error!, textAlign: TextAlign.center),
+                Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 12)),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('Diagnostic Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                      const SizedBox(height: 4),
+                      Text(FirebaseCiConfig.debugDescription, 
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  ),
+                ),
                 const SizedBox(height: 24),
                 ElevatedButton(onPressed: _init, child: const Text('RETRY')),
               ],

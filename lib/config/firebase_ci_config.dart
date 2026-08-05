@@ -10,4 +10,10 @@ class FirebaseCiConfig {
   static const String? iosBundleId = null;
 
   static bool get hasConfig => apiKey != null && appId != null && projectId != null;
+
+  static String get debugDescription {
+    return 'API Key: ${apiKey != null ? "FOUND" : "MISSING"}, '
+           'App ID: ${appId != null ? "FOUND" : "MISSING"}, '
+           'Project ID: ${projectId != null ? "FOUND" : "MISSING"}';
+  }
 }
