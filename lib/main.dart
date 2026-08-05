@@ -84,7 +84,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       else if (FirebaseSecrets.apiKey != null) {
         debugPrint('FirebaseInit: Using CI secrets');
         await Firebase.initializeApp(
-          options: const FirebaseOptions(
+          options: FirebaseOptions(
             apiKey: FirebaseSecrets.apiKey!,
             appId: FirebaseSecrets.appId!,
             messagingSenderId: FirebaseSecrets.messagingSenderId ?? '',

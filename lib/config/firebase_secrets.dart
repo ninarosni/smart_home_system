@@ -1,6 +1,10 @@
 // This file is a placeholder that will be overwritten during the CI/CD build process.
 // Do not commit real secrets here.
 class FirebaseSecrets {
-  static const String? androidJsonBase64 = null;
-  static const String? iosPlistBase64 = null;
+  static const String? apiKey = null;
+  static const String? appId = null;
+  static const String? messagingSenderId = null;
+  static const String? projectId = null;
+  static const String? databaseURL = null;
+  static const String? iosBundleId = null;
 }
