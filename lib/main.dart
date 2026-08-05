@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'config/firebase_ci_config.dart';
 
 void main() async {
   // Ensure Flutter is ready
@@ -66,40 +65,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       debugPrint('FirebaseInit: Starting...');
       final provider = context.read<AppProvider>();
       
-      // 1. Attempt to initialize with User-Provided Settings (from the app UI)
-      if (provider.apiKey != null && provider.appId != null) {
-        debugPrint('FirebaseInit: Using custom user config');
-        await Firebase.initializeApp(
-          options: FirebaseOptions(
-            apiKey: provider.apiKey!,
-            appId: provider.appId!,
-            messagingSenderId: provider.messagingSenderId ?? '',
-            projectId: provider.projectId ?? '',
-            databaseURL: provider.databaseUrl,
-            iosBundleId: provider.iosBundleId,
-          ),
-        );
-      } 
-      // 2. Attempt to initialize with CI-Injected Secrets (from GitHub)
-      else if (FirebaseCiConfig.hasConfig) {
-        debugPrint('FirebaseInit: Using CI injected config');
-        await Firebase.initializeApp(
-          options: const FirebaseOptions(
-            apiKey: FirebaseCiConfig.apiKey!,
-            appId: FirebaseCiConfig.appId!,
-            messagingSenderId: FirebaseCiConfig.messagingSenderId ?? '',
-            projectId: FirebaseCiConfig.projectId!,
-            databaseURL: FirebaseCiConfig.databaseURL,
-            iosBundleId: FirebaseCiConfig.iosBundleId,
-          ),
-        );
-      }
-      // 3. Fallback to default native config (google-services.json / GoogleService-Info.plist)
-      else {
-        debugPrint('FirebaseInit: Using default native config');
-        await Firebase.initializeApp();
-      }
-      
+      // Initialize Firebase (Standard Method)
+      // This will now use the Base64-decoded files injected during the build.
+      await Firebase.initializeApp();
       debugPrint('FirebaseInit: App Initialized');
       
       // Dynamic Authentication
@@ -153,23 +121,6 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
                 const Text('Firebase Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('Diagnostic Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                      const SizedBox(height: 4),
-                      Text(FirebaseCiConfig.debugDescription, 
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 24),
                 ElevatedButton(onPressed: _init, child: const Text('RETRY')),
               ],
