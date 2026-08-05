@@ -62,6 +62,11 @@ jobs:
               f.write(f'  static const String? projectId = {get_val(project_id)};\n')
               f.write(f'  static const String? databaseURL = {get_val(db_url)};\n')
               f.write(f'  static const String? iosBundleId = {get_val(bundle_id)};\n')
+              f.write('  static String get diagnosticInfo {\n')
+              f.write('    return "API Key: ${apiKey != null ? \'FOUND\' : \'MISSING\'}, " \n')
+              f.write('           "App ID: ${appId != null ? \'FOUND\' : \'MISSING\'}, " \n')
+              f.write('           "Project ID: ${projectId != null ? \'FOUND\' : \'MISSING\'}";\n')
+              f.write('  }\n')
               f.write('}\n')
           EOF
           python3 inject_secrets.py
@@ -70,7 +75,7 @@ jobs:
         run: |
           mkdir -p android/app ios/Runner
           echo '{"project_info":{"project_number":"0","project_id":"dummy"},"client":[{"client_info":{"mobilesdk_app_id":"1:0:android:0","android_client_info":{"package_name":"com.example.smart_home_system"}},"api_key":[{"current_key":"dummy"}]}]}' > android/app/google-services.json
-          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
+          echo '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>API_KEY</key><string>dummy</string><key>GOOGLE_APP_ID</key><string>1:0:ios:0</string><key>PROJECT_ID</key><string>dummy</string><key>BUNDLE_ID</key><string>com.example.smartHomeSystem</string></dict></plist>' > ios/Runner/GoogleService-Info.plist
 
       - name: Get Dependencies
         run: flutter pub get
@@ -133,6 +138,11 @@ jobs:
               f.write(f'  static const String? projectId = {get_val(project_id)};\n')
               f.write(f'  static const String? databaseURL = {get_val(db_url)};\n')
               f.write(f'  static const String? iosBundleId = {get_val(bundle_id)};\n')
+              f.write('  static String get diagnosticInfo {\n')
+              f.write('    return "API Key: ${apiKey != null ? \'FOUND\' : \'MISSING\'}, " \n')
+              f.write('           "App ID: ${appId != null ? \'FOUND\' : \'MISSING\'}, " \n')
+              f.write('           "Project ID: ${projectId != null ? \'FOUND\' : \'MISSING\'}";\n')
+              f.write('  }\n')
               f.write('}\n')
           EOF
           python3 inject_secrets.py
