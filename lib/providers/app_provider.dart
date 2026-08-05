@@ -171,19 +171,23 @@ class AppProvider with ChangeNotifier {
       return;
     }
 
-    // Dynamic Authentication
-    if (_authEmail != null && _authPassword != null) {
-      try {
-        await FirebaseAuth.instanceFor(app: app).signInWithEmailAndPassword(
-          email: _authEmail!,
-          password: _authPassword!,
-        );
-      } catch (e) {
-        _errorMessage = 'Auth Error: ${e.toString()}';
-        _isLoading = false;
-        notifyListeners();
-        return;
-      }
+    // Unified Authentication
+    // Use stored credentials if available, otherwise fallback to defaults
+    final email = _authEmail ?? "smarthome@project.com";
+    final password = _authPassword ?? "123456";
+
+    try {
+      debugPrint('AppProvider: Authenticating as $email...');
+      await FirebaseAuth.instanceFor(app: app).signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      debugPrint('AppProvider: Auth Successful');
+    } catch (e) {
+      _errorMessage = 'Authentication Failed: ${e.toString()}';
+      _isLoading = false;
+      notifyListeners();
+      return;
     }
 
     _firebaseService = FirebaseService(

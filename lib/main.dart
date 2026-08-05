@@ -101,17 +101,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
         await Firebase.initializeApp();
       }
       
-      debugPrint('FirebaseInit: Success');
-      
-      // Dynamic Authentication
-      final email = provider.authEmail ?? "smarthome@project.com";
-      final password = provider.authPassword ?? "123456";
-      
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      debugPrint('FirebaseInit: Signed in as $email');
+      debugPrint('FirebaseInit: Core Handshake Success');
       
       if (mounted) {
         setState(() {
