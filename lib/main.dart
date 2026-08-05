@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'config/firebase_secrets.dart';
 
 void main() async {
   // Ensure Flutter is ready
@@ -65,10 +66,41 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       debugPrint('FirebaseInit: Starting...');
       final provider = context.read<AppProvider>();
       
-      // Initialize Firebase (Standard Method)
-      // This will now use the Base64-decoded files injected during the build.
-      await Firebase.initializeApp();
-      debugPrint('FirebaseInit: App Initialized');
+      // 1. Initialize with User-Provided Settings (from the app UI)
+      if (provider.apiKey != null && provider.appId != null) {
+        debugPrint('FirebaseInit: Using custom user config');
+        await Firebase.initializeApp(
+          options: FirebaseOptions(
+            apiKey: provider.apiKey!,
+            appId: provider.appId!,
+            messagingSenderId: provider.messagingSenderId ?? '',
+            projectId: provider.projectId ?? '',
+            databaseURL: provider.databaseUrl,
+            iosBundleId: provider.iosBundleId,
+          ),
+        );
+      } 
+      // 2. Initialize with CI-Injected Secrets (if available)
+      else if (FirebaseSecrets.apiKey != null) {
+        debugPrint('FirebaseInit: Using CI secrets');
+        await Firebase.initializeApp(
+          options: const FirebaseOptions(
+            apiKey: FirebaseSecrets.apiKey!,
+            appId: FirebaseSecrets.appId!,
+            messagingSenderId: FirebaseSecrets.messagingSenderId ?? '',
+            projectId: FirebaseSecrets.projectId!,
+            databaseURL: FirebaseSecrets.databaseURL,
+            iosBundleId: FirebaseSecrets.iosBundleId,
+          ),
+        );
+      }
+      // 3. Fallback to native config files
+      else {
+        debugPrint('FirebaseInit: Using default native config');
+        await Firebase.initializeApp();
+      }
+      
+      debugPrint('FirebaseInit: Success');
       
       // Dynamic Authentication
       final email = provider.authEmail ?? "smarthome@project.com";
