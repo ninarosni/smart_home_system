@@ -1,4 +1,4 @@
-require_relative '../Flutter/podhelper'
+require File.expand_path(File.join('..', 'Flutter', 'podhelper.rb'), __FILE__)
 
 platform :ios, '13.0'
 
