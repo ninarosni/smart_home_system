@@ -70,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text('Configuration Saved & Refreshing...')),
                 );
+                Navigator.pop(context); // Return to previous screen to show result
               },
               child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
             )

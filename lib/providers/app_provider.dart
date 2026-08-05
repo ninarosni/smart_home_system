@@ -116,7 +116,11 @@ class AppProvider with ChangeNotifier {
   }
 
   void _initFirebase() async {
-    if (_projectId == null) return;
+    if (_projectId == null) {
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
     
     _isLoading = true;
     _errorMessage = null;

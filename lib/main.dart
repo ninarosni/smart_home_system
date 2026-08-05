@@ -135,6 +135,13 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     
+    // BYPASS INITIALIZER IF:
+    // 1. We are already receiving data.
+    // 2. The user has provided custom keys (let the RootNavigator handle its own errors).
+    if (provider.deviceData != null || provider.apiKey != null) {
+      return const RootNavigator();
+    }
+
     if (!provider.isConfigLoaded) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
