@@ -118,9 +118,14 @@ class AppProvider with ChangeNotifier {
       await _subscription?.cancel();
       _subscription = null;
       _deviceData = null;
+      _errorMessage = null; // Clear old errors
+      notifyListeners();
       
       try {
         await Firebase.app().delete();
+        // SAFE DELAY: Give the OS half a second to release network ports
+        await Future.delayed(const Duration(milliseconds: 500));
+        debugPrint('AppProvider: Firebase instance purged');
       } catch (_) {}
 
       // 2. Determine Connection Strategy

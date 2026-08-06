@@ -328,13 +328,25 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.error_outline, size: 64, color: Colors.red),
+            const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red),
             const SizedBox(height: 16),
             const Text('Connection Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(provider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
-            ElevatedButton(onPressed: () => provider.clearAll(), child: const Text('RESET SETUP')),
+            SizedBox(
+              width: 200,
+              child: ElevatedButton(
+                onPressed: () => provider.connectToFirebase(),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                child: const Text('RETRY CONNECTION'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => provider.clearAll(),
+              child: const Text('RESET ALL SETTINGS', style: TextStyle(color: Colors.red)),
+            ),
           ],
         ),
       ),
