@@ -6,7 +6,6 @@ import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'config/firebase_secrets.dart';
-import 'dart:io' show Platform;
 
 void main() async {
   // Ensure Flutter is ready
@@ -81,21 +80,7 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
           ),
         );
       } 
-      // 2. Initialize with CI-Injected Secrets (FOR IOS ONLY)
-      else if (Platform.isIOS && FirebaseSecrets.apiKey != null) {
-        debugPrint('FirebaseInit: Using CI Secrets (iOS)');
-        await Firebase.initializeApp(
-          options: FirebaseOptions(
-            apiKey: FirebaseSecrets.apiKey!,
-            appId: FirebaseSecrets.appId!,
-            messagingSenderId: FirebaseSecrets.messagingSenderId ?? '',
-            projectId: FirebaseSecrets.projectId!,
-            databaseURL: FirebaseSecrets.databaseURL,
-            iosBundleId: FirebaseSecrets.iosBundleId,
-          ),
-        );
-      }
-      // 3. Fallback to Native config files (Android & Local Dev)
+      // 2. Fallback to Native config files (Android & Local Dev)
       else {
         debugPrint('FirebaseInit: Standard native initialization');
         await Firebase.initializeApp();

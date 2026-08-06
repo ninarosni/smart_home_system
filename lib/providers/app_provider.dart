@@ -126,23 +126,23 @@ class AppProvider with ChangeNotifier {
 
   void _tryAutoConfigureFromCI() {
     try {
-      debugPrint('AppProvider: Auto-Discovery from CI...');
+      debugPrint('AppProvider: Auto-Discovery...');
       
-      if (_projectId == null && FirebaseSecrets.projectId != null) {
-        _projectId = FirebaseSecrets.projectId;
-        _apiKey = FirebaseSecrets.apiKey;
-        _appId = FirebaseSecrets.appId;
-        _databaseUrl = FirebaseSecrets.databaseURL;
-        _iosBundleId = FirebaseSecrets.iosBundleId;
-        _messagingSenderId = FirebaseSecrets.messagingSenderId;
-        debugPrint('AppProvider: Auto-configured for $_projectId');
-      } else if (_projectId != null) {
-        // If Project ID is already known (from storage), still try to fill missing keys from CI
+      // PRIORITY 1: CI Secrets (from GitHub)
+      if (FirebaseSecrets.projectId != null) {
+        _projectId ??= FirebaseSecrets.projectId;
         _apiKey ??= FirebaseSecrets.apiKey;
         _appId ??= FirebaseSecrets.appId;
         _databaseUrl ??= FirebaseSecrets.databaseURL;
         _iosBundleId ??= FirebaseSecrets.iosBundleId;
         _messagingSenderId ??= FirebaseSecrets.messagingSenderId;
+        debugPrint('AppProvider: Configured from CI for $_projectId');
+      }
+
+      // PRIORITY 2: Hardcoded Default (Final Fallback)
+      if (_projectId == null) {
+        _projectId = 'smart-home-dc84e';
+        debugPrint('AppProvider: Using Hardcoded Fallback for $_projectId');
       }
     } catch (e) {
       debugPrint('AppProvider: Auto-config failed: $e');
