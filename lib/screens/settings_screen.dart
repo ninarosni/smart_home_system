@@ -14,7 +14,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _dbUrlController;
   late TextEditingController _appIdController;
   late TextEditingController _senderIdController;
-  late TextEditingController _iosBundleController;
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   bool _isEditing = false;
@@ -27,7 +26,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dbUrlController = TextEditingController(text: provider.databaseUrl);
     _appIdController = TextEditingController(text: provider.appId);
     _senderIdController = TextEditingController(text: provider.messagingSenderId);
-    _iosBundleController = TextEditingController(text: provider.iosBundleId);
     _emailController = TextEditingController(text: provider.authEmail);
     _passwordController = TextEditingController(text: provider.authPassword);
   }
@@ -38,7 +36,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _dbUrlController.dispose();
     _appIdController.dispose();
     _senderIdController.dispose();
-    _iosBundleController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -54,23 +51,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           if (_isEditing)
             TextButton(
-              onPressed: () {
-                provider.updateFirebaseConfig(
+              onPressed: () async {
+                await provider.updateFirebaseConfig(
                   databaseUrl: _dbUrlController.text.trim(),
                   apiKey: _apiKeyController.text.trim(),
                   appId: _appIdController.text.trim(),
                   messagingSenderId: _senderIdController.text.trim(),
-                  iosBundleId: _iosBundleController.text.trim(),
                 );
-                provider.updateAuthCredentials(
+                await provider.updateAuthCredentials(
                   _emailController.text.trim(),
                   _passwordController.text.trim(),
                 );
-                setState(() => _isEditing = false);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Configuration Saved & Refreshing...')),
-                );
-                Navigator.pop(context); // Return to previous screen to show result
+                if (mounted) {
+                  setState(() => _isEditing = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Configuration Saved & Connecting...')),
+                  );
+                  Navigator.pop(context); // Go back to Dashboard
+                }
               },
               child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
             )
@@ -103,11 +101,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 _buildTextField(_apiKeyController, 'API Key', Icons.key),
                 const SizedBox(height: 12),
-                _buildTextField(_appIdController, 'App ID', Icons.fingerprint),
+                _buildTextField(_appIdController, 'App ID (Optional)', Icons.fingerprint),
                 const SizedBox(height: 12),
-                _buildTextField(_senderIdController, 'Messaging Sender ID', Icons.message),
-                const SizedBox(height: 12),
-                _buildTextField(_iosBundleController, 'iOS Bundle ID (Optional)', Icons.apple),
+                _buildTextField(_senderIdController, 'Sender ID (Optional)', Icons.message),
               ],
             ),
           ),
@@ -138,7 +134,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Smart Home App'),
-            subtitle: Text('Version 1.2.0 (Open Source Ready)'),
+            subtitle: Text('Version 2.0.0 (Android Only)'),
           ),
         ],
       ),

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/device_data.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
@@ -13,33 +15,23 @@ class AppProvider with ChangeNotifier {
   String? _databaseUrl;
   String? _appId;
   String? _messagingSenderId;
-  String? _iosBundleId;
   String? _authEmail;
   String? _authPassword;
 
   DeviceData? _deviceData;
-  bool _isLoading = true;
+  bool _isLoading = false;
   bool _isConfigLoaded = false;
   String? _errorMessage;
-  String _loadingStatus = 'Initializing...';
+  String _loadingStatus = '';
   StreamSubscription? _subscription;
   
   DateTime? _lastUpdateTime;
   Timer? _heartbeatTimer;
   Timer? _loadingTimeoutTimer;
 
-  bool _isFirebaseInitialized = false;
-
   AppProvider() {
     _loadConfig();
     _startHeartbeatTimer();
-  }
-
-  void onFirebaseReady() {
-    _isFirebaseInitialized = true;
-    if (_projectId != null) {
-      _startDataStream();
-    }
   }
 
   String? get projectId => _projectId;
@@ -47,7 +39,6 @@ class AppProvider with ChangeNotifier {
   String? get databaseUrl => _databaseUrl;
   String? get appId => _appId;
   String? get messagingSenderId => _messagingSenderId;
-  String? get iosBundleId => _iosBundleId;
   String? get authEmail => _authEmail;
   String? get authPassword => _authPassword;
 
@@ -81,7 +72,7 @@ class AppProvider with ChangeNotifier {
     _loadingTimeoutTimer?.cancel();
     _loadingTimeoutTimer = Timer(const Duration(seconds: 30), () {
       if (_isLoading) {
-        _errorMessage = 'Connection timed out. Please check your internet connection.';
+        _errorMessage = 'Connection timed out. Please check your settings.';
         _isLoading = false;
         notifyListeners();
       }
@@ -89,69 +80,102 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _loadConfig() async {
-    _loadingStatus = 'Checking local storage...';
-    notifyListeners();
-    
     _projectId = await _storageService.getProjectId();
     final config = await _storageService.getFirebaseConfig();
     _apiKey = config['apiKey'];
     _databaseUrl = config['databaseUrl'];
     _appId = config['appId'];
     _messagingSenderId = config['messagingSenderId'];
-    _iosBundleId = config['iosBundleId'];
 
     final auth = await _storageService.getAuthCredentials();
     _authEmail = auth['email'];
     _authPassword = auth['password'];
     
-    if (_projectId == null) {
-      _projectId = 'smart-home-dc84e';
-    }
-
     _isConfigLoaded = true;
-    notifyListeners();
+    
+    if (_projectId != null) {
+      // If we have an ID, start the connection automatically
+      connectToFirebase();
+    } else {
+      notifyListeners();
+    }
   }
 
-  void _startDataStream() async {
-    if (!_isFirebaseInitialized || _projectId == null) return;
+  Future<void> connectToFirebase() async {
+    if (_projectId == null) return;
     
     _isLoading = true;
     _errorMessage = null;
-    _loadingStatus = 'Connecting to database...';
+    _loadingStatus = 'Connecting...';
     notifyListeners();
     
     _startLoadingTimeout();
 
-    _firebaseService = FirebaseService(projectId: _projectId!);
-    
-    await _subscription?.cancel();
-    _subscription = _firebaseService!.getDeviceDataStream().listen(
-      (data) {
-        _loadingTimeoutTimer?.cancel();
-        _deviceData = data;
-        _lastUpdateTime = DateTime.now();
-        _isLoading = false;
-        _errorMessage = null;
-        notifyListeners();
-      },
-      onError: (error) {
-        _loadingTimeoutTimer?.cancel();
-        String msg = error.toString();
-        if (msg.contains('permission-denied')) {
-          _errorMessage = 'Access Denied: Check Firebase Rules.';
-        } else {
-          _errorMessage = 'Connection Error: $msg';
-        }
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    try {
+      // Ensure we are working with a clean slate
+      try {
+        await Firebase.app().delete();
+      } catch (_) {}
+
+      // 1. Initialize Firebase
+      if (_apiKey != null && _databaseUrl != null) {
+        debugPrint('AppProvider: Initializing with custom options');
+        await Firebase.initializeApp(
+          options: FirebaseOptions(
+            apiKey: _apiKey!,
+            appId: _appId ?? '1:0:android:0', // Placeholder if missing
+            messagingSenderId: _messagingSenderId ?? '0',
+            projectId: _projectId!,
+            databaseURL: _databaseUrl!,
+          ),
+        );
+      } else {
+        debugPrint('AppProvider: Initializing with default native options');
+        await Firebase.initializeApp();
+      }
+
+      // 2. Authenticate
+      final email = _authEmail ?? "smarthome@project.com";
+      final password = _authPassword ?? "123456";
+      
+      debugPrint('AppProvider: Authenticating as $email...');
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      // 3. Start Data Stream
+      _firebaseService = FirebaseService(projectId: _projectId!);
+      
+      await _subscription?.cancel();
+      _subscription = _firebaseService!.getDeviceDataStream().listen(
+        (data) {
+          _loadingTimeoutTimer?.cancel();
+          _deviceData = data;
+          _lastUpdateTime = DateTime.now();
+          _isLoading = false;
+          _errorMessage = null;
+          notifyListeners();
+        },
+        onError: (error) {
+          _loadingTimeoutTimer?.cancel();
+          _errorMessage = 'Database Error: ${error.toString()}';
+          _isLoading = false;
+          notifyListeners();
+        },
+      );
+    } catch (e) {
+      debugPrint('AppProvider: Connection FAILED: $e');
+      _errorMessage = e.toString();
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<void> setProjectId(String id) async {
     _projectId = id;
     await _storageService.saveProjectId(id);
-    _startDataStream();
+    await connectToFirebase();
   }
 
   Future<void> updateFirebaseConfig({
@@ -159,35 +183,27 @@ class AppProvider with ChangeNotifier {
     required String apiKey,
     required String appId,
     required String messagingSenderId,
-    String? iosBundleId,
   }) async {
     _databaseUrl = databaseUrl;
     _apiKey = apiKey;
     _appId = appId;
     _messagingSenderId = messagingSenderId;
-    _iosBundleId = iosBundleId;
 
     await _storageService.saveFirebaseConfig(
       databaseUrl: databaseUrl,
       apiKey: apiKey,
       appId: appId,
       messagingSenderId: messagingSenderId,
-      iosBundleId: iosBundleId,
     );
 
-    _isFirebaseInitialized = false;
-    _isConfigLoaded = false;
-    _loadConfig();
+    await connectToFirebase();
   }
 
   Future<void> updateAuthCredentials(String email, String password) async {
     _authEmail = email;
     _authPassword = password;
     await _storageService.saveAuthCredentials(email, password);
-    
-    _isFirebaseInitialized = false;
-    _isConfigLoaded = false;
-    _loadConfig();
+    await connectToFirebase();
   }
 
   Future<void> clearProjectId() async {
@@ -199,16 +215,12 @@ class AppProvider with ChangeNotifier {
     _databaseUrl = null;
     _appId = null;
     _messagingSenderId = null;
-    _iosBundleId = null;
     _authEmail = null;
     _authPassword = null;
     _deviceData = null;
     _firebaseService = null;
     await _storageService.clearProjectId();
-    
-    _isFirebaseInitialized = false;
-    _isConfigLoaded = false;
-    _loadConfig();
+    notifyListeners();
   }
 
   Future<void> toggleActuator(String actuator, bool value) async {
