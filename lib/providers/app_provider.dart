@@ -343,11 +343,21 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> toggleActuator(String actuator, bool value) async {
-    await _firebaseService?.updateActuator(actuator, value);
+    try {
+      await _firebaseService?.updateActuator(actuator, value);
+    } catch (e) {
+      _errorMessage = 'Failed to toggle $actuator: ${e.toString()}';
+      notifyListeners();
+    }
   }
 
   Future<void> toggleMode(bool isAuto) async {
-    await _firebaseService?.setOperationMode(isAuto);
+    try {
+      await _firebaseService?.setOperationMode(isAuto);
+    } catch (e) {
+      _errorMessage = 'Failed to change mode: ${e.toString()}';
+      notifyListeners();
+    }
   }
 
   @override

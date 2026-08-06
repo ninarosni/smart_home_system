@@ -154,6 +154,14 @@ class DashboardScreen extends StatelessWidget {
                       style: TextStyle(fontSize: 10, color: Colors.grey[600]),
                     ),
                   ],
+                  if (provider.errorMessage != null && provider.deviceData != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        provider.errorMessage!,
+                        style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                 ],
               ),
               CircleAvatar(

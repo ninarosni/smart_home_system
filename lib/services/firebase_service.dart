@@ -37,16 +37,20 @@ class FirebaseService {
   Future<void> updateActuator(String actuator, bool value) async {
     try {
       await _db.ref('homes/$projectId/commands/$actuator').set(value);
+      _logger.i('Successfully updated actuator $actuator to $value');
     } catch (e) {
       _logger.e('Error updating actuator $actuator: $e');
+      rethrow; // Pass error up to the UI
     }
   }
 
   Future<void> setOperationMode(bool isAuto) async {
     try {
       await _db.ref('homes/$projectId/system/auto').set(isAuto);
+      _logger.i('Successfully set operation mode to ${isAuto ? "AUTO" : "MANUAL"}');
     } catch (e) {
       _logger.e('Error setting operation mode: $e');
+      rethrow; // Pass error up to the UI
     }
   }
 }
