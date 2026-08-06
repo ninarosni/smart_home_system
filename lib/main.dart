@@ -65,6 +65,14 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
     try {
       debugPrint('FirebaseInit: Starting...');
       final provider = context.read<AppProvider>();
+
+      // Wait for provider to load local settings from storage
+      // This prevents the "Race Condition" between storage and Firebase
+      int timeout = 0;
+      while (!provider.isConfigLoaded && timeout < 50) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        timeout++;
+      }
       
       // 1. Initialize with User-Provided Settings (from the app UI)
       if (provider.apiKey != null && provider.appId != null) {

@@ -175,17 +175,15 @@ class AppProvider with ChangeNotifier {
     
     FirebaseApp? app;
     try {
-      // Prefer custom app if configured, otherwise use default
+      // 1. If we have custom keys, use the named instance 'custom_home'
       if (_apiKey != null && _appId != null) {
-        // HARD RESET: Always delete the existing custom app instance to force new options to take effect
         try {
+          // Hard Reset: Ensure we start with a fresh instance if keys changed
           await Firebase.app('custom_home').delete();
-          debugPrint('AppProvider: Deleted old custom_home instance');
-        } catch (_) {
-          // Ignore if it didn't exist
-        }
+          debugPrint('AppProvider: Reset old custom instance');
+        } catch (_) {}
 
-        debugPrint('AppProvider: Initializing new custom_home instance...');
+        debugPrint('AppProvider: Initializing custom_home...');
         app = await Firebase.initializeApp(
           name: 'custom_home',
           options: FirebaseOptions(
@@ -197,11 +195,15 @@ class AppProvider with ChangeNotifier {
             iosBundleId: _iosBundleId,
           ),
         );
-      } else {
+      } 
+      // 2. Otherwise, use the Default App (initialized in main.dart)
+      else {
         app = Firebase.app();
+        debugPrint('AppProvider: Using Default Firebase App');
       }
     } catch (e) {
-      _errorMessage = 'Firebase not ready. Please check your configuration.';
+      debugPrint('AppProvider: ERROR getting app instance: $e');
+      _errorMessage = 'Firebase initialization failed. Please check your settings.';
       _isLoading = false;
       notifyListeners();
       return;
