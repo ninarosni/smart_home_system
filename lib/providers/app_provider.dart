@@ -6,7 +6,6 @@ import '../models/device_data.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 import '../config/firebase_secrets.dart';
-import 'dart:convert';
 
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -110,7 +109,7 @@ class AppProvider with ChangeNotifier {
     _authEmail = auth['email'];
     _authPassword = auth['password'];
     
-    // Auto-Discovery from CI Secrets
+    // Auto-Discovery from CI Secrets or Defaults
     if (_projectId == null) {
       _tryAutoConfigureFromCI();
     }
@@ -261,23 +260,6 @@ class AppProvider with ChangeNotifier {
       },
     );
   }
-        _isLoading = false;
-        _errorMessage = null;
-        notifyListeners();
-      },
-      onError: (error) {
-        _loadingTimeoutTimer?.cancel();
-        String msg = error.toString();
-        if (msg.contains('permission-denied')) {
-          _errorMessage = 'Access Denied: Please check your Firebase Security Rules.';
-        } else {
-          _errorMessage = 'Firebase Error: $msg';
-        }
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
-  }
 
   Future<void> setProjectId(String id) async {
     _projectId = id;
@@ -337,7 +319,8 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> clearProjectId() async {
-    _subscription?.cancel();
+    await _subscription?.cancel();
+    _subscription = null;
     _loadingTimeoutTimer?.cancel();
     _projectId = null;
     _apiKey = null;
