@@ -10,6 +10,7 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  late TextEditingController _projectIdController;
   late TextEditingController _apiKeyController;
   late TextEditingController _dbUrlController;
   late TextEditingController _appIdController;
@@ -22,6 +23,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   void initState() {
     super.initState();
     final provider = context.read<AppProvider>();
+    _projectIdController = TextEditingController(text: provider.firebaseProjectId);
     _apiKeyController = TextEditingController(text: provider.apiKey);
     _dbUrlController = TextEditingController(text: provider.databaseUrl);
     _appIdController = TextEditingController(text: provider.appId);
@@ -32,6 +34,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
+    _projectIdController.dispose();
     _apiKeyController.dispose();
     _dbUrlController.dispose();
     _appIdController.dispose();
@@ -53,6 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             TextButton(
               onPressed: () async {
                 await provider.updateFirebaseConfig(
+                  projectId: _projectIdController.text.trim(),
                   databaseUrl: _dbUrlController.text.trim(),
                   apiKey: _apiKeyController.text.trim(),
                   appId: _appIdController.text.trim(),
@@ -84,24 +88,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const SizedBox(height: 16),
           _buildSectionHeader('Current Connection'),
           ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.cloud_sync)),
-            title: const Text('Project ID'),
-            subtitle: Text(provider.projectId ?? 'None'),
-            trailing: provider.projectId != null 
+            leading: const CircleAvatar(child: Icon(Icons.home_outlined)),
+            title: const Text('Home ID'),
+            subtitle: Text(provider.homeId ?? 'None'),
+            trailing: provider.homeId != null 
               ? const Icon(Icons.verified, color: Colors.green)
               : null,
           ),
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.cloud_sync)),
+            title: const Text('Database (Project ID)'),
+            subtitle: Text(provider.firebaseProjectId ?? 'smart-home-dc84e (Default)'),
+          ),
           const Divider(),
-          _buildSectionHeader('Firebase Configuration'),
+          _buildSectionHeader('Firebase Credentials'),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
             child: Column(
               children: [
+                _buildTextField(_projectIdController, 'Firebase Project ID', Icons.fingerprint),
+                const SizedBox(height: 12),
                 _buildTextField(_dbUrlController, 'Database URL', Icons.link),
                 const SizedBox(height: 12),
                 _buildTextField(_apiKeyController, 'API Key', Icons.key),
                 const SizedBox(height: 12),
-                _buildTextField(_appIdController, 'App ID (Optional)', Icons.fingerprint),
+                _buildTextField(_appIdController, 'App ID (Optional)', Icons.apps),
                 const SizedBox(height: 12),
                 _buildTextField(_senderIdController, 'Sender ID (Optional)', Icons.message),
               ],
@@ -122,9 +133,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const Divider(),
           _buildSectionHeader('Management'),
           ListTile(
-            leading: const Icon(Icons.swap_horiz, color: Colors.blue),
-            title: const Text('Change Project ID'),
-            subtitle: const Text('Disconnect and pair with a new project'),
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text('Disconnect Home'),
+            subtitle: const Text('Return to Home ID setup screen'),
             onTap: () {
               _showConfirmDialog(context, provider);
             },
@@ -134,7 +145,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           const ListTile(
             leading: Icon(Icons.info_outline),
             title: Text('Smart Home App'),
-            subtitle: Text('Version 2.0.0 (Android Only)'),
+            subtitle: Text('Version 2.1.0 (Identity Separation)'),
           ),
         ],
       ),
@@ -177,8 +188,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change Project ID?'),
-        content: const Text('This will disconnect you from the current project and return you to the setup screen.'),
+        title: const Text('Disconnect Home?'),
+        content: const Text('This will clear your Home ID and return you to the setup screen.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -186,7 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              provider.clearProjectId();
+              provider.clearAll();
               Navigator.pop(context); // Close dialog
               Navigator.pop(context); // Close settings screen
             },

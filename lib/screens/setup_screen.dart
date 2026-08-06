@@ -21,7 +21,7 @@ class _SetupScreenState extends State<SetupScreen> {
   void _onConnect() {
     final id = _controller.text.trim();
     if (id.isNotEmpty) {
-      context.read<AppProvider>().setProjectId(id);
+      context.read<AppProvider>().setHomeId(id);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please enter a valid Project ID')),

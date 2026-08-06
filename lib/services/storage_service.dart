@@ -1,7 +1,8 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
-  static const String _keyProjectId = 'project_id';
+  static const String _keyHomeId = 'home_id';
+  static const String _keyFirebaseProjectId = 'firebase_project_id';
   static const String _keyApiKey = 'api_key';
   static const String _keyDatabaseUrl = 'database_url';
   static const String _keyAppId = 'app_id';
@@ -9,23 +10,25 @@ class StorageService {
   static const String _keyAuthEmail = 'auth_email';
   static const String _keyAuthPassword = 'auth_password';
 
-  Future<void> saveProjectId(String id) async {
+  Future<void> saveHomeId(String id) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_keyProjectId, id);
+    await prefs.setString(_keyHomeId, id);
   }
 
-  Future<String?> getProjectId() async {
+  Future<String?> getHomeId() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_keyProjectId);
+    return prefs.getString(_keyHomeId);
   }
 
   Future<void> saveFirebaseConfig({
+    required String projectId,
     required String databaseUrl,
     required String apiKey,
     required String appId,
     required String messagingSenderId,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_keyFirebaseProjectId, projectId);
     await prefs.setString(_keyDatabaseUrl, databaseUrl);
     await prefs.setString(_keyApiKey, apiKey);
     await prefs.setString(_keyAppId, appId);
@@ -35,6 +38,7 @@ class StorageService {
   Future<Map<String, String?>> getFirebaseConfig() async {
     final prefs = await SharedPreferences.getInstance();
     return {
+      'projectId': prefs.getString(_keyFirebaseProjectId),
       'databaseUrl': prefs.getString(_keyDatabaseUrl),
       'apiKey': prefs.getString(_keyApiKey),
       'appId': prefs.getString(_keyAppId),
@@ -56,9 +60,10 @@ class StorageService {
     };
   }
 
-  Future<void> clearProjectId() async {
+  Future<void> clearAll() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_keyProjectId);
+    await prefs.remove(_keyHomeId);
+    await prefs.remove(_keyFirebaseProjectId);
     await prefs.remove(_keyApiKey);
     await prefs.remove(_keyDatabaseUrl);
     await prefs.remove(_keyAppId);

@@ -54,7 +54,7 @@ class AppRoot extends StatelessWidget {
         }
 
         // 2. Decide based on Project ID
-        if (provider.projectId == null) {
+        if (provider.homeId == null) {
           return const SetupScreen();
         }
 

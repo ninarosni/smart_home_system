@@ -4,18 +4,18 @@ import 'package:logger/logger.dart';
 
 class FirebaseService {
   final FirebaseDatabase _db = FirebaseDatabase.instance;
-  final String projectId;
+  final String homeId; // This is the user entered name like HOME-004
   final _logger = Logger();
 
-  FirebaseService({required this.projectId});
+  FirebaseService({required this.homeId});
 
   Stream<DeviceData> getDeviceDataStream() {
-    return _db.ref('homes/$projectId').onValue.map((event) {
+    return _db.ref('homes/$homeId').onValue.map((event) {
       if (!event.snapshot.exists) {
-        throw 'Home "$projectId" not found in database.';
+        throw 'Home "$homeId" not found in database.';
       }
       final data = event.snapshot.value as Map<dynamic, dynamic>? ?? {};
-      return DeviceData.fromMap(projectId, data);
+      return DeviceData.fromMap(homeId, data);
     }).handleError((error) {
       _logger.e('Error reading from Firebase: $error');
       throw error;
@@ -24,7 +24,7 @@ class FirebaseService {
 
   Future<void> updateActuator(String actuator, bool value) async {
     try {
-      await _db.ref('homes/$projectId/commands/$actuator').set(value);
+      await _db.ref('homes/$homeId/commands/$actuator').set(value);
       _logger.i('Successfully updated actuator $actuator to $value');
     } catch (e) {
       _logger.e('Error updating actuator $actuator: $e');
@@ -34,7 +34,7 @@ class FirebaseService {
 
   Future<void> setOperationMode(bool isAuto) async {
     try {
-      await _db.ref('homes/$projectId/system/auto').set(isAuto);
+      await _db.ref('homes/$homeId/system/auto').set(isAuto);
       _logger.i('Successfully set operation mode to ${isAuto ? "AUTO" : "MANUAL"}');
     } catch (e) {
       _logger.e('Error setting operation mode: $e');

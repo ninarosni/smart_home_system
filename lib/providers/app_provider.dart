@@ -10,7 +10,8 @@ class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
   FirebaseService? _firebaseService;
   
-  String? _projectId;
+  String? _homeId;
+  String? _firebaseProjectId;
   String? _apiKey;
   String? _databaseUrl;
   String? _appId;
@@ -34,7 +35,8 @@ class AppProvider with ChangeNotifier {
     _startHeartbeatTimer();
   }
 
-  String? get projectId => _projectId;
+  String? get homeId => _homeId;
+  String? get firebaseProjectId => _firebaseProjectId;
   String? get apiKey => _apiKey;
   String? get databaseUrl => _databaseUrl;
   String? get appId => _appId;
@@ -62,7 +64,7 @@ class AppProvider with ChangeNotifier {
   void _startHeartbeatTimer() {
     _heartbeatTimer?.cancel();
     _heartbeatTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_projectId != null) {
+      if (_homeId != null) {
         notifyListeners();
       }
     });
@@ -72,7 +74,7 @@ class AppProvider with ChangeNotifier {
     _loadingTimeoutTimer?.cancel();
     _loadingTimeoutTimer = Timer(const Duration(seconds: 30), () {
       if (_isLoading) {
-        _errorMessage = 'Connection timed out. Please check your settings.';
+        _errorMessage = 'Connection timed out. Check your internet or credentials.';
         _isLoading = false;
         notifyListeners();
       }
@@ -80,8 +82,9 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> _loadConfig() async {
-    _projectId = await _storageService.getProjectId();
+    _homeId = await _storageService.getHomeId();
     final config = await _storageService.getFirebaseConfig();
+    _firebaseProjectId = config['projectId'];
     _apiKey = config['apiKey'];
     _databaseUrl = config['databaseUrl'];
     _appId = config['appId'];
@@ -93,8 +96,7 @@ class AppProvider with ChangeNotifier {
     
     _isConfigLoaded = true;
     
-    if (_projectId != null) {
-      // If we have an ID, start the connection automatically
+    if (_homeId != null) {
       connectToFirebase();
     } else {
       notifyListeners();
@@ -102,7 +104,7 @@ class AppProvider with ChangeNotifier {
   }
 
   Future<void> connectToFirebase() async {
-    if (_projectId == null) return;
+    if (_homeId == null) return;
     
     _isLoading = true;
     _errorMessage = null;
@@ -112,42 +114,46 @@ class AppProvider with ChangeNotifier {
     _startLoadingTimeout();
 
     try {
-      // Ensure we are working with a clean slate
+      // 1. Clean shutdown of previous connection
+      await _subscription?.cancel();
+      _subscription = null;
+      _deviceData = null;
+      
       try {
         await Firebase.app().delete();
       } catch (_) {}
 
-      // 1. Initialize Firebase
-      if (_apiKey != null && _databaseUrl != null) {
-        debugPrint('AppProvider: Initializing with custom options');
+      // 2. Determine Connection Strategy
+      // If ANY key is provided, we MUST use FirebaseOptions to override the native file
+      if (_apiKey != null || _databaseUrl != null || _firebaseProjectId != null) {
+        debugPrint('AppProvider: Manual Connection Strategy Active');
         await Firebase.initializeApp(
           options: FirebaseOptions(
-            apiKey: _apiKey!,
-            appId: _appId ?? '1:0:android:0', // Placeholder if missing
-            messagingSenderId: _messagingSenderId ?? '0',
-            projectId: _projectId!,
-            databaseURL: _databaseUrl!,
+            apiKey: _apiKey ?? '', 
+            appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95', // Use default App ID if missing
+            messagingSenderId: _messagingSenderId ?? '517039773968',
+            projectId: _firebaseProjectId ?? 'smart-home-dc84e',
+            databaseURL: _databaseUrl ?? 'https://smart-home-dc84e-default-rtdb.asia-southeast1.firebasedatabase.app',
           ),
         );
       } else {
-        debugPrint('AppProvider: Initializing with default native options');
+        debugPrint('AppProvider: Native File Strategy Active');
         await Firebase.initializeApp();
       }
 
-      // 2. Authenticate
+      // 3. Authenticate
       final email = _authEmail ?? "smarthome@project.com";
       final password = _authPassword ?? "123456";
       
-      debugPrint('AppProvider: Authenticating as $email...');
+      debugPrint('AppProvider: Attempting Auth for $email');
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // 3. Start Data Stream
-      _firebaseService = FirebaseService(projectId: _projectId!);
+      // 4. Start Data Stream
+      _firebaseService = FirebaseService(homeId: _homeId!);
       
-      await _subscription?.cancel();
       _subscription = _firebaseService!.getDeviceDataStream().listen(
         (data) {
           _loadingTimeoutTimer?.cancel();
@@ -159,58 +165,62 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Database Error: ${error.toString()}';
+          _errorMessage = 'Database Access Denied or Missing Path.';
           _isLoading = false;
           notifyListeners();
         },
       );
     } catch (e) {
-      debugPrint('AppProvider: Connection FAILED: $e');
-      _errorMessage = e.toString();
+      debugPrint('AppProvider: Connection FATAL ERROR: $e');
+      _errorMessage = 'Failed to connect. Check API Key and URL.';
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> setProjectId(String id) async {
-    _projectId = id;
-    await _storageService.saveProjectId(id);
+  Future<void> setHomeId(String id) async {
+    _homeId = id;
+    await _storageService.saveHomeId(id);
     await connectToFirebase();
   }
 
   Future<void> updateFirebaseConfig({
+    required String projectId,
     required String databaseUrl,
     required String apiKey,
     required String appId,
     required String messagingSenderId,
   }) async {
-    _databaseUrl = databaseUrl;
-    _apiKey = apiKey;
-    _appId = appId;
-    _messagingSenderId = messagingSenderId;
+    _firebaseProjectId = projectId.isEmpty ? null : projectId;
+    _databaseUrl = databaseUrl.isEmpty ? null : databaseUrl;
+    _apiKey = apiKey.isEmpty ? null : apiKey;
+    _appId = appId.isEmpty ? null : appId;
+    _messagingSenderId = messagingSenderId.isEmpty ? null : messagingSenderId;
 
     await _storageService.saveFirebaseConfig(
-      databaseUrl: databaseUrl,
-      apiKey: apiKey,
-      appId: appId,
-      messagingSenderId: messagingSenderId,
+      projectId: _firebaseProjectId ?? '',
+      databaseUrl: _databaseUrl ?? '',
+      apiKey: _apiKey ?? '',
+      appId: _appId ?? '',
+      messagingSenderId: _messagingSenderId ?? '',
     );
 
     await connectToFirebase();
   }
 
   Future<void> updateAuthCredentials(String email, String password) async {
-    _authEmail = email;
-    _authPassword = password;
-    await _storageService.saveAuthCredentials(email, password);
+    _authEmail = email.isEmpty ? null : email;
+    _authPassword = password.isEmpty ? null : password;
+    await _storageService.saveAuthCredentials(_authEmail ?? '', _authPassword ?? '');
     await connectToFirebase();
   }
 
-  Future<void> clearProjectId() async {
+  Future<void> clearAll() async {
     await _subscription?.cancel();
     _subscription = null;
     _loadingTimeoutTimer?.cancel();
-    _projectId = null;
+    _homeId = null;
+    _firebaseProjectId = null;
     _apiKey = null;
     _databaseUrl = null;
     _appId = null;
@@ -219,7 +229,7 @@ class AppProvider with ChangeNotifier {
     _authPassword = null;
     _deviceData = null;
     _firebaseService = null;
-    await _storageService.clearProjectId();
+    await _storageService.clearAll();
     notifyListeners();
   }
 
@@ -227,7 +237,7 @@ class AppProvider with ChangeNotifier {
     try {
       await _firebaseService?.updateActuator(actuator, value);
     } catch (e) {
-      _errorMessage = 'Failed to toggle $actuator: ${e.toString()}';
+      _errorMessage = 'Toggle Failed: ${e.toString()}';
       notifyListeners();
     }
   }
@@ -236,7 +246,7 @@ class AppProvider with ChangeNotifier {
     try {
       await _firebaseService?.setOperationMode(isAuto);
     } catch (e) {
-      _errorMessage = 'Failed to change mode: ${e.toString()}';
+      _errorMessage = 'Mode Switch Failed: ${e.toString()}';
       notifyListeners();
     }
   }

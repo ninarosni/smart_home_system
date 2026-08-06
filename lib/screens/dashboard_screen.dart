@@ -22,7 +22,7 @@ class DashboardScreen extends StatelessWidget {
             ),
             Consumer<AppProvider>(
               builder: (context, provider, child) => Text(
-                provider.projectId ?? 'Not Connected',
+                'Home: ${provider.homeId ?? "Not Connected"}',
                 style: const TextStyle(fontSize: 10, color: Colors.grey),
               ),
             ),
@@ -142,7 +142,7 @@ class DashboardScreen extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
                   ),
                   Text(
-                    'Database: ${data.id}',
+                    'Database: ${provider.firebaseProjectId ?? "Default"}',
                     style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
                   ),
                   const SizedBox(height: 8),
@@ -334,7 +334,7 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(provider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
             const SizedBox(height: 32),
-            ElevatedButton(onPressed: () => provider.clearProjectId(), child: const Text('RESET SETUP')),
+            ElevatedButton(onPressed: () => provider.clearAll(), child: const Text('RESET SETUP')),
           ],
         ),
       ),
