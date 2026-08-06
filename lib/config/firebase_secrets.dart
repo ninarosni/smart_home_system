@@ -1,3 +1,5 @@
+// THIS FILE IS AUTOMATICALLY OVERWRITTEN BY GITHUB ACTIONS DURING BUILDS.
+// DO NOT ADD SECRETS HERE LOCALLY.
 class FirebaseSecrets {
   static const String? apiKey = null;
   static const String? appId = null;
@@ -7,9 +9,9 @@ class FirebaseSecrets {
   static const String? iosBundleId = null;
 
   static String get diagnosticInfo {
-    return 'API Key: ${apiKey != null ? "FOUND" : "MISSING"}, '
-           'App ID: ${appId != null ? "FOUND" : "MISSING"}, '
-           'Project ID: ${projectId != null ? "FOUND" : "MISSING"}, '
-           'Bundle ID: ${iosBundleId != null ? "FOUND" : "MISSING"}';
+    return 'API: ${apiKey != null ? "OK" : "MISSING"}, '
+           'ID: ${appId != null ? "OK" : "MISSING"}, '
+           'Project: ${projectId != null ? "OK" : "MISSING"}, '
+           'Bundle: ${iosBundleId != null ? "OK" : "MISSING"}';
   }
 }
