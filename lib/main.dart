@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
-import 'config/firebase_secrets.dart';
 
 void main() async {
-  // Ensure Flutter is ready
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Start the app immediately
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppProvider(),
@@ -54,6 +52,7 @@ class FirebaseInitializer extends StatefulWidget {
 class _FirebaseInitializerState extends State<FirebaseInitializer> {
   bool _initialized = false;
   String? _error;
+  String? _lastConfigKey; // Track if config changed
 
   @override
   void initState() {
@@ -67,41 +66,53 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
       final provider = context.read<AppProvider>();
 
       // Wait for provider to load local settings from storage
-      // This prevents the "Race Condition" between storage and Firebase
       int timeout = 0;
       while (!provider.isConfigLoaded && timeout < 50) {
         await Future.delayed(const Duration(milliseconds: 100));
         timeout++;
       }
       
-      // 1. Initialize with User-Provided Settings (from the app UI)
+      // Cleanup existing app if we are re-initializing
+      try {
+        await Firebase.app().delete();
+        debugPrint('FirebaseInit: Cleaned up previous instance');
+      } catch (_) {}
+
+      // Initialize based on available credentials
       if (provider.apiKey != null && provider.appId != null) {
-        debugPrint('FirebaseInit: Using custom user config');
+        debugPrint('FirebaseInit: Using custom configuration');
         await Firebase.initializeApp(
           options: FirebaseOptions(
             apiKey: provider.apiKey!,
             appId: provider.appId!,
             messagingSenderId: provider.messagingSenderId ?? '',
-            projectId: provider.projectId ?? '',
+            projectId: provider.projectId ?? 'smart-home-dc84e',
             databaseURL: provider.databaseUrl,
             iosBundleId: provider.iosBundleId,
           ),
         );
-      } 
-      // 2. Fallback to Native config files (Android & Local Dev)
-      else {
-        debugPrint('FirebaseInit: Standard native initialization');
+      } else {
+        debugPrint('FirebaseInit: Using default native configuration');
         await Firebase.initializeApp();
       }
       
-      debugPrint('FirebaseInit: Core Handshake Success');
+      // Authentication
+      final email = provider.authEmail ?? "smarthome@project.com";
+      final password = provider.authPassword ?? "123456";
+      
+      debugPrint('FirebaseInit: Authenticating as $email...');
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
       
       if (mounted) {
         setState(() {
           _initialized = true;
           _error = null;
+          _lastConfigKey = "${provider.apiKey}${provider.projectId}";
         });
-        context.read<AppProvider>().onFirebaseReady();
+        provider.onFirebaseReady();
       }
     } catch (e) {
       debugPrint('FirebaseInit: FAILED: $e');
@@ -118,9 +129,26 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
     
-    if (!provider.isConfigLoaded) {
+    // Auto-detect if we need to re-initialize (e.g. user clicked Save in Settings)
+    if (provider.isConfigLoaded && !provider.isLoading && _initialized) {
+        final currentKey = "${provider.apiKey}${provider.projectId}";
+        if (_lastConfigKey != currentKey) {
+            WidgetsBinding.instance.addPostFrameCallback((_) => _init());
+        }
+    }
+
+    if (!provider.isConfigLoaded || (!_initialized && _error == null)) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Connecting to services...', style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
       );
     }
 
@@ -134,28 +162,9 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
               children: [
                 const Icon(Icons.error_outline, size: 64, color: Colors.red),
                 const SizedBox(height: 16),
-                const Text('Firebase Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const Text('Connection Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
                 Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.red, fontSize: 12)),
-                const SizedBox(height: 16),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('Diagnostic Info', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                      const SizedBox(height: 4),
-                      Text(FirebaseSecrets.diagnosticInfo, 
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                      const SizedBox(height: 4),
-                      const Text('SDK Status: LOADED', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                ),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -167,27 +176,12 @@ class _FirebaseInitializerState extends State<FirebaseInitializer> {
                         context,
                         MaterialPageRoute(builder: (context) => const SettingsScreen()),
                       ),
-                      child: const Text('CONFIGURE MANUALLY'),
+                      child: const Text('SETTINGS'),
                     ),
                   ],
                 ),
               ],
             ),
-          ),
-        ),
-      );
-    }
-
-    if (!_initialized) {
-      return const Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              Text('Connecting to services...', style: TextStyle(color: Colors.grey)),
-            ],
           ),
         ),
       );
@@ -204,17 +198,10 @@ class RootNavigator extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
-        // Decide which screen to show
         if (provider.projectId == null) {
-          if (provider.isLoading) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
-          }
           return const SetupScreen();
         }
 
-        // If project ID exists but we are still loading data
         if (provider.isLoading) {
           return Scaffold(
             body: Center(
@@ -233,7 +220,6 @@ class RootNavigator extends StatelessWidget {
           );
         }
 
-        // If there was an error during initial fetch
         if (provider.errorMessage != null && provider.deviceData == null) {
           return Scaffold(
             body: Center(
@@ -244,11 +230,24 @@ class RootNavigator extends StatelessWidget {
                   children: [
                     const Icon(Icons.cloud_off_rounded, size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    const Text('Connection Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                    const Text('Database Error', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Text(provider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
                     const SizedBox(height: 32),
-                    ElevatedButton(onPressed: () => provider.clearProjectId(), child: const Text('BACK TO SETUP')),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(onPressed: () => provider.clearProjectId(), child: const Text('DISCONNECT')),
+                        const SizedBox(width: 12),
+                        OutlinedButton(
+                            onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+                            ),
+                            child: const Text('SETTINGS'),
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ),

@@ -1,11 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../models/device_data.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
-import '../config/firebase_secrets.dart';
 
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -31,8 +28,7 @@ class AppProvider with ChangeNotifier {
   Timer? _heartbeatTimer;
   Timer? _loadingTimeoutTimer;
 
-  bool _isFirebaseReady = false;
-  bool _isGlobalHandshakeDone = false;
+  bool _isFirebaseInitialized = false;
 
   AppProvider() {
     _loadConfig();
@@ -40,10 +36,9 @@ class AppProvider with ChangeNotifier {
   }
 
   void onFirebaseReady() {
-    _isFirebaseReady = true;
-    _isGlobalHandshakeDone = true;
+    _isFirebaseInitialized = true;
     if (_projectId != null) {
-      _initFirebase();
+      _startDataStream();
     }
   }
 
@@ -109,137 +104,27 @@ class AppProvider with ChangeNotifier {
     _authEmail = auth['email'];
     _authPassword = auth['password'];
     
-    // Auto-Discovery from CI Secrets or Defaults
     if (_projectId == null) {
-      _tryAutoConfigureFromCI();
+      _projectId = 'smart-home-dc84e';
     }
 
     _isConfigLoaded = true;
-    if (_projectId != null && _isFirebaseReady) {
-      _initFirebase();
-    } else {
-      _isLoading = false;
-      notifyListeners();
-    }
+    notifyListeners();
   }
 
-  void _tryAutoConfigureFromCI() {
-    try {
-      debugPrint('AppProvider: Auto-Discovery...');
-      
-      // PRIORITY 1: CI Secrets (from GitHub)
-      if (FirebaseSecrets.projectId != null) {
-        _projectId ??= FirebaseSecrets.projectId;
-        _apiKey ??= FirebaseSecrets.apiKey;
-        _appId ??= FirebaseSecrets.appId;
-        _databaseUrl ??= FirebaseSecrets.databaseURL;
-        _iosBundleId ??= FirebaseSecrets.iosBundleId;
-        _messagingSenderId ??= FirebaseSecrets.messagingSenderId;
-        debugPrint('AppProvider: Configured from CI for $_projectId');
-      }
-
-      // PRIORITY 2: Hardcoded Default (Final Fallback)
-      if (_projectId == null) {
-        _projectId = 'smart-home-dc84e';
-        debugPrint('AppProvider: Using Hardcoded Fallback for $_projectId');
-      }
-    } catch (e) {
-      debugPrint('AppProvider: Auto-config failed: $e');
-    }
-  }
-
-  void _initFirebase() async {
-    if (!_isGlobalHandshakeDone) {
-      debugPrint('AppProvider: Waiting for global handshake...');
-      return;
-    }
-
-    if (_projectId == null) {
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
+  void _startDataStream() async {
+    if (!_isFirebaseInitialized || _projectId == null) return;
     
-    // FORCED RESET: Kill old subscription and clear data to ensure a fresh start
-    await _subscription?.cancel();
-    _subscription = null;
-    _deviceData = null;
     _isLoading = true;
     _errorMessage = null;
-    _loadingStatus = 'Connecting to Firebase...';
+    _loadingStatus = 'Connecting to database...';
     notifyListeners();
     
     _startLoadingTimeout();
 
-    final dbUrl = _databaseUrl ?? 'https://smart-home-dc84e-default-rtdb.asia-southeast1.firebasedatabase.app';
+    _firebaseService = FirebaseService(projectId: _projectId!);
     
-    FirebaseApp? app;
-    try {
-      // 1. If we have custom keys, use the named instance 'custom_home'
-      if (_apiKey != null && _appId != null) {
-        try {
-          // Hard Reset: Ensure we start with a fresh instance if keys changed
-          await Firebase.app('custom_home').delete();
-          debugPrint('AppProvider: Reset old custom instance');
-        } catch (_) {}
-
-        debugPrint('AppProvider: Initializing custom_home...');
-        app = await Firebase.initializeApp(
-          name: 'custom_home',
-          options: FirebaseOptions(
-            apiKey: _apiKey!,
-            appId: _appId!,
-            messagingSenderId: _messagingSenderId ?? '',
-            projectId: _projectId ?? '',
-            databaseURL: dbUrl,
-            iosBundleId: _iosBundleId,
-          ),
-        );
-      } 
-      // 2. Otherwise, use the Default App (initialized in main.dart)
-      else {
-        app = Firebase.app();
-        debugPrint('AppProvider: Using Default Firebase App');
-      }
-    } catch (e) {
-      debugPrint('AppProvider: ERROR getting app instance: $e');
-      _errorMessage = 'Firebase initialization failed. Please check your settings.';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    if (app == null) {
-      _errorMessage = 'Could not find a valid Firebase instance.';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    // Unified Authentication
-    final email = _authEmail ?? "smarthome@project.com";
-    final password = _authPassword ?? "123456";
-
-    try {
-      debugPrint('AppProvider: Authenticating as $email...');
-      await FirebaseAuth.instanceFor(app: app).signInWithEmailAndPassword(
-        email: email,
-        password: password,
-      );
-      debugPrint('AppProvider: Auth Successful');
-    } catch (e) {
-      _errorMessage = 'Authentication Failed: ${e.toString()}';
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
-    _firebaseService = FirebaseService(
-      projectId: _projectId!,
-      databaseUrl: dbUrl,
-      app: app,
-    );
-    
+    await _subscription?.cancel();
     _subscription = _firebaseService!.getDeviceDataStream().listen(
       (data) {
         _loadingTimeoutTimer?.cancel();
@@ -253,9 +138,9 @@ class AppProvider with ChangeNotifier {
         _loadingTimeoutTimer?.cancel();
         String msg = error.toString();
         if (msg.contains('permission-denied')) {
-          _errorMessage = 'Access Denied: Please check your Firebase Security Rules.';
+          _errorMessage = 'Access Denied: Check Firebase Rules.';
         } else {
-          _errorMessage = 'Firebase Error: $msg';
+          _errorMessage = 'Connection Error: $msg';
         }
         _isLoading = false;
         notifyListeners();
@@ -266,20 +151,7 @@ class AppProvider with ChangeNotifier {
   Future<void> setProjectId(String id) async {
     _projectId = id;
     await _storageService.saveProjectId(id);
-    if (_isFirebaseReady) {
-      _initFirebase();
-    }
-  }
-
-  Future<void> updateApiKeys(String key, String secret) async {
-    _apiKey = key;
-    await _storageService.saveApiKeys(key, secret);
-    
-    // Live refresh the connection if already active
-    if (_projectId != null && _isFirebaseReady) {
-      _initFirebase();
-    }
-    notifyListeners();
+    _startDataStream();
   }
 
   Future<void> updateFirebaseConfig({
@@ -303,21 +175,19 @@ class AppProvider with ChangeNotifier {
       iosBundleId: iosBundleId,
     );
 
-    if (_projectId != null && _isFirebaseReady) {
-      _initFirebase();
-    }
-    notifyListeners();
+    _isFirebaseInitialized = false;
+    _isConfigLoaded = false;
+    _loadConfig();
   }
 
   Future<void> updateAuthCredentials(String email, String password) async {
     _authEmail = email;
     _authPassword = password;
     await _storageService.saveAuthCredentials(email, password);
-
-    if (_projectId != null && _isFirebaseReady) {
-      _initFirebase();
-    }
-    notifyListeners();
+    
+    _isFirebaseInitialized = false;
+    _isConfigLoaded = false;
+    _loadConfig();
   }
 
   Future<void> clearProjectId() async {
@@ -335,9 +205,10 @@ class AppProvider with ChangeNotifier {
     _deviceData = null;
     _firebaseService = null;
     await _storageService.clearProjectId();
-    _isLoading = false;
-    _errorMessage = null;
-    notifyListeners();
+    
+    _isFirebaseInitialized = false;
+    _isConfigLoaded = false;
+    _loadConfig();
   }
 
   Future<void> toggleActuator(String actuator, bool value) async {
