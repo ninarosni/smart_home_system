@@ -161,6 +161,10 @@ class AppProvider with ChangeNotifier {
       return;
     }
     
+    // FORCED RESET: Kill old subscription and clear data to ensure a fresh start
+    await _subscription?.cancel();
+    _subscription = null;
+    _deviceData = null;
     _isLoading = true;
     _errorMessage = null;
     _loadingStatus = 'Connecting to Firebase...';
@@ -174,25 +178,26 @@ class AppProvider with ChangeNotifier {
     try {
       // Prefer custom app if configured, otherwise use default
       if (_apiKey != null && _appId != null) {
+        // HARD RESET: Always delete the existing custom app instance to force new options to take effect
         try {
-          app = await Firebase.initializeApp(
-            name: 'custom_home',
-            options: FirebaseOptions(
-              apiKey: _apiKey!,
-              appId: _appId!,
-              messagingSenderId: _messagingSenderId ?? '',
-              projectId: _projectId ?? '',
-              databaseURL: dbUrl,
-              iosBundleId: _iosBundleId,
-            ),
-          );
-        } catch (e) {
-          if (e.toString().contains('duplicate-app')) {
-            app = Firebase.app('custom_home');
-          } else {
-            throw 'Custom Firebase Init Error: $e';
-          }
+          await Firebase.app('custom_home').delete();
+          debugPrint('AppProvider: Deleted old custom_home instance');
+        } catch (_) {
+          // Ignore if it didn't exist
         }
+
+        debugPrint('AppProvider: Initializing new custom_home instance...');
+        app = await Firebase.initializeApp(
+          name: 'custom_home',
+          options: FirebaseOptions(
+            apiKey: _apiKey!,
+            appId: _appId!,
+            messagingSenderId: _messagingSenderId ?? '',
+            projectId: _projectId ?? '',
+            databaseURL: dbUrl,
+            iosBundleId: _iosBundleId,
+          ),
+        );
       } else {
         app = Firebase.app();
       }
@@ -211,7 +216,6 @@ class AppProvider with ChangeNotifier {
     }
 
     // Unified Authentication
-    // Use stored credentials if available, otherwise fallback to defaults
     final email = _authEmail ?? "smarthome@project.com";
     final password = _authPassword ?? "123456";
 
@@ -234,20 +238,29 @@ class AppProvider with ChangeNotifier {
       databaseUrl: dbUrl,
       app: app,
     );
-    _subscription?.cancel();
+    
     _subscription = _firebaseService!.getDeviceDataStream().listen(
       (data) {
         _loadingTimeoutTimer?.cancel();
-        
-        // Logic check: if sensors are missing, the path might be wrong or device never sent data
-        if (data.sensors.temperature == 0 && data.sensors.humidity == 0 && data.system.rssi == 0) {
-           // We can't be 100% sure it's "not found" vs "just zeroed", 
-           // but we can check the snapshot more deeply in FirebaseService if needed.
-           // For now, let's just assume valid if we get an event.
-        }
-
         _deviceData = data;
         _lastUpdateTime = DateTime.now();
+        _isLoading = false;
+        _errorMessage = null;
+        notifyListeners();
+      },
+      onError: (error) {
+        _loadingTimeoutTimer?.cancel();
+        String msg = error.toString();
+        if (msg.contains('permission-denied')) {
+          _errorMessage = 'Access Denied: Please check your Firebase Security Rules.';
+        } else {
+          _errorMessage = 'Firebase Error: $msg';
+        }
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
         _isLoading = false;
         _errorMessage = null;
         notifyListeners();
