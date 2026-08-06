@@ -9,6 +9,7 @@ class FirebaseSecrets {
   static String get diagnosticInfo {
     return 'API Key: ${apiKey != null ? "FOUND" : "MISSING"}, '
            'App ID: ${appId != null ? "FOUND" : "MISSING"}, '
-           'Project ID: ${projectId != null ? "FOUND" : "MISSING"}';
+           'Project ID: ${projectId != null ? "FOUND" : "MISSING"}, '
+           'Bundle ID: ${iosBundleId != null ? "FOUND" : "MISSING"}';
   }
 }

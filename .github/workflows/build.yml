@@ -29,10 +29,9 @@ jobs:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
           IOS_SERVICES_PLIST_B64: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
-          mkdir -p lib/config
-          cat << 'EOF' > inject_secrets.py
+          python3 -c "
           import os, base64, json, plistlib
-          def get_val(v): return f'"{v}"' if v else 'null'
+          def get_val(v): return f'\"{v}\"' if v else 'null'
           api_key = app_id = sender_id = project_id = db_url = bundle_id = None
           try:
               b64 = os.environ.get('GOOGLE_SERVICES_JSON_B64', '')
@@ -44,6 +43,7 @@ jobs:
                   client = data['client'][0]
                   api_key = client['api_key'][0]['current_key']
                   app_id = client['client_info']['mobilesdk_app_id']
+                  print(f'Detected Android Project: {project_id}')
           except Exception as e: print(f'Android parse failed: {e}')
           try:
               b64 = os.environ.get('IOS_SERVICES_PLIST_B64', '')
@@ -52,7 +52,9 @@ jobs:
                   api_key = data.get('API_KEY', api_key)
                   app_id = data.get('GOOGLE_APP_ID', app_id)
                   project_id = data.get('PROJECT_ID', project_id)
+                  db_url = data.get('DATABASE_URL', db_url)
                   bundle_id = data.get('BUNDLE_ID')
+                  print(f'Detected iOS Bundle ID: {bundle_id}')
           except Exception as e: print(f'iOS parse failed: {e}')
           with open('lib/config/firebase_secrets.dart', 'w') as f:
               f.write('class FirebaseSecrets {\n')
@@ -63,13 +65,13 @@ jobs:
               f.write(f'  static const String? databaseURL = {get_val(db_url)};\n')
               f.write(f'  static const String? iosBundleId = {get_val(bundle_id)};\n')
               f.write('  static String get diagnosticInfo {\n')
-              f.write('    return "API Key: ${apiKey != null ? \'FOUND\' : \'MISSING\'}, " \n')
-              f.write('           "App ID: ${appId != null ? \'FOUND\' : \'MISSING\'}, " \n')
-              f.write('           "Project ID: ${projectId != null ? \'FOUND\' : \'MISSING\'}";\n')
+              f.write('    return \"API Key: ${apiKey != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"App ID: ${appId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"Project ID: ${projectId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"Bundle ID: ${iosBundleId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"\";\n')
               f.write('  }\n')
               f.write('}\n')
-          EOF
-          python3 inject_secrets.py
+          "
 
       - name: Create Native Config Files (Dummy)
         run: |
@@ -105,10 +107,9 @@ jobs:
           GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON }}
           IOS_SERVICES_PLIST_B64: ${{ secrets.IOS_SERVICES_PLIST }}
         run: |
-          mkdir -p lib/config
-          cat << 'EOF' > inject_secrets.py
+          python3 -c "
           import os, base64, json, plistlib
-          def get_val(v): return f'"{v}"' if v else 'null'
+          def get_val(v): return f'\"{v}\"' if v else 'null'
           api_key = app_id = sender_id = project_id = db_url = bundle_id = None
           try:
               b64 = os.environ.get('GOOGLE_SERVICES_JSON_B64', '')
@@ -120,6 +121,7 @@ jobs:
                   client = data['client'][0]
                   api_key = client['api_key'][0]['current_key']
                   app_id = client['client_info']['mobilesdk_app_id']
+                  print(f'Detected Android Project: {project_id}')
           except Exception as e: print(f'Android parse failed: {e}')
           try:
               b64 = os.environ.get('IOS_SERVICES_PLIST_B64', '')
@@ -128,7 +130,9 @@ jobs:
                   api_key = data.get('API_KEY', api_key)
                   app_id = data.get('GOOGLE_APP_ID', app_id)
                   project_id = data.get('PROJECT_ID', project_id)
+                  db_url = data.get('DATABASE_URL', db_url)
                   bundle_id = data.get('BUNDLE_ID')
+                  print(f'Detected iOS Bundle ID: {bundle_id}')
           except Exception as e: print(f'iOS parse failed: {e}')
           with open('lib/config/firebase_secrets.dart', 'w') as f:
               f.write('class FirebaseSecrets {\n')
@@ -139,13 +143,13 @@ jobs:
               f.write(f'  static const String? databaseURL = {get_val(db_url)};\n')
               f.write(f'  static const String? iosBundleId = {get_val(bundle_id)};\n')
               f.write('  static String get diagnosticInfo {\n')
-              f.write('    return "API Key: ${apiKey != null ? \'FOUND\' : \'MISSING\'}, " \n')
-              f.write('           "App ID: ${appId != null ? \'FOUND\' : \'MISSING\'}, " \n')
-              f.write('           "Project ID: ${projectId != null ? \'FOUND\' : \'MISSING\'}";\n')
+              f.write('    return \"API Key: ${apiKey != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"App ID: ${appId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"Project ID: ${projectId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"}, \"\n')
+              f.write('           \"Bundle ID: ${iosBundleId != null ? \\\"FOUND\\\" : \\\"MISSING\\\"\";\n')
               f.write('  }\n')
               f.write('}\n')
-          EOF
-          python3 inject_secrets.py
+          "
 
       - name: Create Native Config Files (Dummy)
         run: |

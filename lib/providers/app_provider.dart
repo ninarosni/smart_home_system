@@ -136,6 +136,13 @@ class AppProvider with ChangeNotifier {
         _iosBundleId = FirebaseSecrets.iosBundleId;
         _messagingSenderId = FirebaseSecrets.messagingSenderId;
         debugPrint('AppProvider: Auto-configured for $_projectId');
+      } else if (_projectId != null) {
+        // If Project ID is already known (from storage), still try to fill missing keys from CI
+        _apiKey ??= FirebaseSecrets.apiKey;
+        _appId ??= FirebaseSecrets.appId;
+        _databaseUrl ??= FirebaseSecrets.databaseURL;
+        _iosBundleId ??= FirebaseSecrets.iosBundleId;
+        _messagingSenderId ??= FirebaseSecrets.messagingSenderId;
       }
     } catch (e) {
       debugPrint('AppProvider: Auto-config failed: $e');
