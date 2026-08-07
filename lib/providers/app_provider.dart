@@ -129,20 +129,17 @@ class AppProvider with ChangeNotifier {
       } catch (_) {}
 
       // 2. Determine Connection Strategy
-      // If ANY key is provided, we MUST use FirebaseOptions to override the native file
       if (_apiKey != null || _databaseUrl != null || _firebaseProjectId != null) {
-        debugPrint('AppProvider: Manual Connection Strategy Active');
         await Firebase.initializeApp(
           options: FirebaseOptions(
             apiKey: _apiKey ?? '', 
-            appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95', // Use default App ID if missing
+            appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
             messagingSenderId: _messagingSenderId ?? '517039773968',
             projectId: _firebaseProjectId ?? 'smart-home-dc84e',
             databaseURL: _databaseUrl ?? 'https://smart-home-dc84e-default-rtdb.asia-southeast1.firebasedatabase.app',
           ),
         );
       } else {
-        debugPrint('AppProvider: Native File Strategy Active');
         await Firebase.initializeApp();
       }
 
@@ -150,14 +147,16 @@ class AppProvider with ChangeNotifier {
       final email = _authEmail ?? "smarthome@project.com";
       final password = _authPassword ?? "123456";
       
-      debugPrint('AppProvider: Attempting Auth for $email');
       await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
       // 4. Start Data Stream
-      _firebaseService = FirebaseService(homeId: _homeId!);
+      _firebaseService = FirebaseService(
+        homeId: _homeId!,
+        databaseUrl: _databaseUrl,
+      );
       
       _subscription = _firebaseService!.getDeviceDataStream().listen(
         (data) {

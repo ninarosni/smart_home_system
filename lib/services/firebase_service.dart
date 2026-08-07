@@ -1,13 +1,25 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../models/device_data.dart';
 import 'package:logger/logger.dart';
 
 class FirebaseService {
-  final FirebaseDatabase _db = FirebaseDatabase.instance;
-  final String homeId; // This is the user entered name like HOME-004
+  late final FirebaseDatabase _db;
+  final String homeId;
   final _logger = Logger();
 
-  FirebaseService({required this.homeId});
+  FirebaseService({required this.homeId, String? databaseUrl}) {
+    // EXPLICIT INSTANCE: If a URL is provided, force Firebase to use it.
+    // Otherwise, use the default instance from google-services.json
+    if (databaseUrl != null && databaseUrl.isNotEmpty) {
+      _db = FirebaseDatabase.instanceFor(
+        app: Firebase.app(),
+        databaseURL: databaseUrl,
+      );
+    } else {
+      _db = FirebaseDatabase.instance;
+    }
+  }
 
   Stream<DeviceData> getDeviceDataStream() {
     return _db.ref('homes/$homeId').onValue.map((event) {
