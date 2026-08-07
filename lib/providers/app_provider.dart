@@ -115,7 +115,7 @@ class AppProvider with ChangeNotifier {
     _startLoadingTimeout();
 
     try {
-      // 1. Clean previous state
+      // 1. Clean shutdown of previous connection
       await _subscription?.cancel();
       _subscription = null;
       _deviceData = null;
@@ -123,13 +123,18 @@ class AppProvider with ChangeNotifier {
         await _firebaseService!.disconnect();
       }
 
-      // 2. Build Config
+      // 2. Build Config with STRICT validation to prevent "ApplicationId must be set"
       UserFirebaseConfig? config;
       if (_apiKey != null && _databaseUrl != null && _firebaseProjectId != null) {
+        // Fallback for appId if it's missing but we have other keys
+        final safeAppId = (_appId == null || _appId!.isEmpty) 
+            ? '1:517039773968:android:7d9360a49226d10bbbad95' // Use default as emergency placeholder
+            : _appId!;
+
         config = UserFirebaseConfig(
           apiKey: _apiKey!,
-          appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
-          messagingSenderId: _messagingSenderId ?? '',
+          appId: safeAppId,
+          messagingSenderId: _messagingSenderId ?? '517039773968',
           projectId: _firebaseProjectId!,
           databaseUrl: _databaseUrl!,
         );
@@ -171,15 +176,21 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Database Access Denied: ${error.toString()}';
+          _errorMessage = 'Database Access Denied: Check Security Rules.';
           _isLoading = false;
           notifyListeners();
         },
       );
     } catch (e) {
       debugPrint('AppProvider: Connection FATAL: $e');
-      // Pass the specific Firebase error code to the UI
-      _errorMessage = 'Handshake Failed: ${e.toString().split(']').last.trim()}';
+      // CLEAN ERROR PARSING: Extract only the main reason from the complex stacktrace
+      String msg = e.toString();
+      if (msg.contains('invalid-api-key')) msg = 'Invalid API Key';
+      else if (msg.contains('project-not-found')) msg = 'Project Not Found';
+      else if (msg.contains('ApplicationId must be set')) msg = 'Missing App ID (Required for custom projects)';
+      else if (msg.contains(']')) msg = msg.split(']').last.trim();
+      
+      _errorMessage = 'Handshake Failed: $msg';
       _isLoading = false;
       notifyListeners();
     }

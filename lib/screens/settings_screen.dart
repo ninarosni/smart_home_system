@@ -108,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 const SizedBox(height: 12),
                 _buildTextField(_apiKeyController, 'API Key', Icons.key),
                 const SizedBox(height: 12),
-                _buildTextField(_appIdController, 'App ID (Optional)', Icons.apps),
+                _buildTextField(_appIdController, 'App ID (Required for custom)', Icons.apps),
                 const SizedBox(height: 12),
                 _buildTextField(_senderIdController, 'Sender ID (Optional)', Icons.message),
               ],
