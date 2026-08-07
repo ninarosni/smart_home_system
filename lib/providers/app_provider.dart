@@ -175,7 +175,16 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Database Access Denied: Check Security Rules.';
+          String msg = error.toString();
+          
+          if (msg.contains('not found') || msg.contains('null')) {
+            _errorMessage = 'Database Empty: Please upload the required data structure to your Firebase Console.';
+          } else if (msg.contains('permission') || msg.contains('denied')) {
+            _errorMessage = 'Permission Denied: Your Security Rules are blocking access. Verify auth != null.';
+          } else {
+            _errorMessage = 'Database Error: $msg';
+          }
+          
           _isLoading = false;
           notifyListeners();
         },

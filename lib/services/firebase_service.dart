@@ -62,7 +62,7 @@ class FirebaseService {
   Stream<DeviceData> getDeviceDataStream() {
     return _db.ref('homes/$homeId').onValue.map((event) {
       if (!event.snapshot.exists) {
-        throw StateError('Home "$homeId" was not found.');
+        throw 'ERROR: Path "homes/$homeId" not found. Your database might be empty.';
       }
 
       final data = event.snapshot.value as Map<dynamic, dynamic>? ?? {};
