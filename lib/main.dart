@@ -8,13 +8,11 @@ import 'screens/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // ENGINE A (FOUNDATION): Initialize the default app immediately.
-  // This stays running in the background and is never "deleted".
+  // Foundation: Always initialize the default app first for core features
   try {
     await Firebase.initializeApp();
-    debugPrint('Main: Engine A (Foundation) initialized');
   } catch (e) {
-    debugPrint('Main: Engine A was already initialized');
+    debugPrint('Firebase already initialized');
   }
 
   runApp(
@@ -63,7 +61,7 @@ class AppRoot extends StatelessWidget {
           );
         }
 
-        // 2. Decide based on Home ID (Project ID)
+        // 2. Decide based on Home ID (The path identifier)
         if (provider.homeId == null) {
           return const SetupScreen();
         }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/device_data.dart';
+import '../models/user_firebase_config.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 
@@ -72,9 +73,9 @@ class AppProvider with ChangeNotifier {
 
   void _startLoadingTimeout() {
     _loadingTimeoutTimer?.cancel();
-    _loadingTimeoutTimer = Timer(const Duration(seconds: 30), () {
+    _loadingTimeoutTimer = Timer(const Duration(seconds: 40), () {
       if (_isLoading) {
-        _errorMessage = 'Connection timed out. Verify your API Key and Network.';
+        _errorMessage = 'Handshake Timeout. Verify your Database URL and Internet.';
         _isLoading = false;
         notifyListeners();
       }
@@ -108,71 +109,58 @@ class AppProvider with ChangeNotifier {
     
     _isLoading = true;
     _errorMessage = null;
-    _loadingStatus = 'Purging Old Instance...';
+    _loadingStatus = 'Requesting Handshake...';
     notifyListeners();
     
     _startLoadingTimeout();
 
     try {
-      // 1. Clean shutdown
+      // 1. Clean previous state
       await _subscription?.cancel();
       _subscription = null;
       _deviceData = null;
-      
-      const instanceName = 'override';
-      
-      // Delete specifically the 'override' app if it exists
-      try {
-        await Firebase.app(instanceName).delete();
-        await Future.delayed(const Duration(milliseconds: 400));
-        debugPrint('AppProvider: Purged override instance');
-      } catch (_) {}
-
-      FirebaseApp activeApp;
-
-      // 2. Initialize
-      if (_apiKey != null && _databaseUrl != null) {
-        _loadingStatus = 'Re-initializing Engine...';
-        notifyListeners();
-        
-        activeApp = await Firebase.initializeApp(
-          name: instanceName,
-          options: FirebaseOptions(
-            apiKey: _apiKey!,
-            appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
-            messagingSenderId: _messagingSenderId ?? '517039773968',
-            projectId: _firebaseProjectId ?? 'smart-home-dc84e',
-            databaseURL: _databaseUrl!,
-          ),
-        );
-      } else {
-        _loadingStatus = 'Activating Default Engine...';
-        notifyListeners();
-        
-        try {
-          activeApp = Firebase.app(); // Use default
-        } catch (_) {
-          activeApp = await Firebase.initializeApp();
-        }
+      if (_firebaseService != null) {
+        await _firebaseService!.disconnect();
       }
 
-      // 3. Authenticate specifically on the active app instance
+      // 2. Build Config
+      UserFirebaseConfig? config;
+      if (_apiKey != null && _databaseUrl != null && _firebaseProjectId != null) {
+        config = UserFirebaseConfig(
+          apiKey: _apiKey!,
+          appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
+          messagingSenderId: _messagingSenderId ?? '',
+          projectId: _firebaseProjectId!,
+          databaseUrl: _databaseUrl!,
+        );
+      }
+
+      // 3. Connect to Engine
+      _loadingStatus = 'Synchronizing Engine...';
+      notifyListeners();
+      
+      _firebaseService = await FirebaseService.connect(
+        homeId: _homeId!,
+        config: config,
+      );
+
+      // 4. Authenticate specifically for the active app instance
       final email = _authEmail ?? "smarthome@project.com";
       final password = _authPassword ?? "123456";
       
-      debugPrint('AppProvider: Authenticating instance...');
-      await FirebaseAuth.instanceFor(app: activeApp).signInWithEmailAndPassword(
+      _loadingStatus = 'Authenticating Project...';
+      notifyListeners();
+
+      await FirebaseAuth.instanceFor(app: _firebaseService!.appInstance).signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // 4. Start Data Stream linked to the specific instance
-      _firebaseService = FirebaseService(
-        homeId: _homeId!,
-        databaseUrl: _databaseUrl,
-      );
-      
-      _subscription = _firebaseService!.getDeviceDataStream(app: activeApp).listen(
+      // 5. Start Data Stream
+      _loadingStatus = 'Opening Data Stream...';
+      notifyListeners();
+
+      _subscription = _firebaseService!.getDeviceDataStream().listen(
         (data) {
           _loadingTimeoutTimer?.cancel();
           _deviceData = data;
@@ -183,14 +171,15 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Database Access Rejected: ${error.toString()}';
+          _errorMessage = 'Database Access Denied: ${error.toString()}';
           _isLoading = false;
           notifyListeners();
         },
       );
     } catch (e) {
-      debugPrint('AppProvider: FATAL ERROR: $e');
-      _errorMessage = 'Handshake Failed: ${e.toString()}';
+      debugPrint('AppProvider: Connection FATAL: $e');
+      // Pass the specific Firebase error code to the UI
+      _errorMessage = 'Handshake Failed: ${e.toString().split(']').last.trim()}';
       _isLoading = false;
       notifyListeners();
     }
@@ -225,8 +214,7 @@ class AppProvider with ChangeNotifier {
       _authPassword ?? '',
     );
 
-    // BACKGROUND RECONNECT: Don't await this so UI can pop immediately
-    connectToFirebase();
+    await connectToFirebase();
   }
 
   Future<void> setHomeId(String id) async {
@@ -248,7 +236,10 @@ class AppProvider with ChangeNotifier {
     _authEmail = null;
     _authPassword = null;
     _deviceData = null;
-    _firebaseService = null;
+    if (_firebaseService != null) {
+      await _firebaseService!.disconnect();
+      _firebaseService = null;
+    }
     await _storageService.clearAll();
     notifyListeners();
   }
@@ -257,7 +248,7 @@ class AppProvider with ChangeNotifier {
     try {
       await _firebaseService?.updateActuator(actuator, value);
     } catch (e) {
-      _errorMessage = 'Toggle Failed: ${e.toString()}';
+      _errorMessage = 'Control Failed: ${e.toString()}';
       notifyListeners();
     }
   }
