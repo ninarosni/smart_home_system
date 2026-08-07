@@ -7,6 +7,7 @@ class FirebaseService {
   final String homeId;
 
   FirebaseService({required this.homeId, String? databaseUrl}) {
+    // Initializer for the service itself (default behavior)
     if (databaseUrl != null && databaseUrl.isNotEmpty) {
       _db = FirebaseDatabase.instanceFor(
         app: Firebase.app(),
@@ -17,10 +18,13 @@ class FirebaseService {
     }
   }
 
-  Stream<DeviceData> getDeviceDataStream() {
-    return _db.ref('homes/$homeId').onValue.map((event) {
+  // UPDATED: Allow passing a specific FirebaseApp instance for multi-app support
+  Stream<DeviceData> getDeviceDataStream({FirebaseApp? app}) {
+    final db = app != null ? FirebaseDatabase.instanceFor(app: app) : _db;
+    
+    return db.ref('homes/$homeId').onValue.map((event) {
       if (!event.snapshot.exists) {
-        throw 'Home "$homeId" not found in database.';
+        throw 'Path "homes/$homeId" not found in this database.';
       }
       final data = event.snapshot.value as Map<dynamic, dynamic>? ?? {};
       return DeviceData.fromMap(homeId, data);

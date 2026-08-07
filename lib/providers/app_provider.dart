@@ -74,7 +74,7 @@ class AppProvider with ChangeNotifier {
     _loadingTimeoutTimer?.cancel();
     _loadingTimeoutTimer = Timer(const Duration(seconds: 30), () {
       if (_isLoading) {
-        _errorMessage = 'Connection timed out. Check your settings.';
+        _errorMessage = 'Connection timed out. Verify your API Key and Network.';
         _isLoading = false;
         notifyListeners();
       }
@@ -108,26 +108,35 @@ class AppProvider with ChangeNotifier {
     
     _isLoading = true;
     _errorMessage = null;
-    _loadingStatus = 'Hard Disconnecting...';
+    _loadingStatus = 'Purging Old Instance...';
     notifyListeners();
     
     _startLoadingTimeout();
 
     try {
+      // 1. Clean shutdown
       await _subscription?.cancel();
       _subscription = null;
       _deviceData = null;
       
+      const instanceName = 'override';
+      
+      // Delete specifically the 'override' app if it exists
       try {
-        await Firebase.app().delete();
-        await Future.delayed(const Duration(milliseconds: 600));
+        await Firebase.app(instanceName).delete();
+        await Future.delayed(const Duration(milliseconds: 400));
+        debugPrint('AppProvider: Purged override instance');
       } catch (_) {}
 
-      _loadingStatus = 'Regrowing Connection...';
-      notifyListeners();
+      FirebaseApp activeApp;
 
+      // 2. Initialize
       if (_apiKey != null && _databaseUrl != null) {
-        await Firebase.initializeApp(
+        _loadingStatus = 'Re-initializing Engine...';
+        notifyListeners();
+        
+        activeApp = await Firebase.initializeApp(
+          name: instanceName,
           options: FirebaseOptions(
             apiKey: _apiKey!,
             appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
@@ -137,23 +146,33 @@ class AppProvider with ChangeNotifier {
           ),
         );
       } else {
-        await Firebase.initializeApp();
+        _loadingStatus = 'Activating Default Engine...';
+        notifyListeners();
+        
+        try {
+          activeApp = Firebase.app(); // Use default
+        } catch (_) {
+          activeApp = await Firebase.initializeApp();
+        }
       }
 
+      // 3. Authenticate specifically on the active app instance
       final email = _authEmail ?? "smarthome@project.com";
       final password = _authPassword ?? "123456";
       
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      debugPrint('AppProvider: Authenticating instance...');
+      await FirebaseAuth.instanceFor(app: activeApp).signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
+      // 4. Start Data Stream linked to the specific instance
       _firebaseService = FirebaseService(
         homeId: _homeId!,
         databaseUrl: _databaseUrl,
       );
       
-      _subscription = _firebaseService!.getDeviceDataStream().listen(
+      _subscription = _firebaseService!.getDeviceDataStream(app: activeApp).listen(
         (data) {
           _loadingTimeoutTimer?.cancel();
           _deviceData = data;
@@ -164,19 +183,19 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Access Denied: Check Rules or Path.';
+          _errorMessage = 'Database Access Rejected: ${error.toString()}';
           _isLoading = false;
           notifyListeners();
         },
       );
     } catch (e) {
-      _errorMessage = 'Connection Failed: Check Keys/Network.';
+      debugPrint('AppProvider: FATAL ERROR: $e');
+      _errorMessage = 'Handshake Failed: ${e.toString()}';
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // ATOMIC APPLY: Save everything first, then reconnect once.
   Future<void> applyAllSettings({
     required String projectId,
     required String databaseUrl,
@@ -194,7 +213,6 @@ class AppProvider with ChangeNotifier {
     _authEmail = email.isEmpty ? null : email;
     _authPassword = password.isEmpty ? null : password;
 
-    // 1. Save all to storage
     await _storageService.saveFirebaseConfig(
       projectId: _firebaseProjectId ?? '',
       databaseUrl: _databaseUrl ?? '',
@@ -207,8 +225,8 @@ class AppProvider with ChangeNotifier {
       _authPassword ?? '',
     );
 
-    // 2. Trigger exactly ONE reconnection cycle
-    await connectToFirebase();
+    // BACKGROUND RECONNECT: Don't await this so UI can pop immediately
+    connectToFirebase();
   }
 
   Future<void> setHomeId(String id) async {
@@ -239,7 +257,7 @@ class AppProvider with ChangeNotifier {
     try {
       await _firebaseService?.updateActuator(actuator, value);
     } catch (e) {
-      _errorMessage = 'Control Failed: ${e.toString()}';
+      _errorMessage = 'Toggle Failed: ${e.toString()}';
       notifyListeners();
     }
   }

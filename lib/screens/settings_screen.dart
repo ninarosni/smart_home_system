@@ -54,8 +54,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         actions: [
           if (_isEditing)
             TextButton(
-              onPressed: () async {
-                await provider.applyAllSettings(
+              onPressed: () {
+                provider.applyAllSettings(
                   projectId: _projectIdController.text.trim(),
                   databaseUrl: _dbUrlController.text.trim(),
                   apiKey: _apiKeyController.text.trim(),
@@ -64,13 +64,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   email: _emailController.text.trim(),
                   password: _passwordController.text.trim(),
                 );
-                if (mounted) {
-                  setState(() => _isEditing = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Configuration Saved & Connecting...')),
-                  );
-                  Navigator.pop(context); // Go back to Dashboard
-                }
+                setState(() => _isEditing = false);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Re-initializing Connection...')),
+                );
+                Navigator.pop(context); // RETURN IMMEDIATELY to Dashboard
               },
               child: const Text('SAVE', style: TextStyle(fontWeight: FontWeight.bold)),
             )
