@@ -323,8 +323,8 @@ class DashboardScreen extends StatelessWidget {
 
   Widget _buildErrorState(AppProvider provider) {
     return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 32.0, vertical: 16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -332,14 +332,19 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const Text('Connection Failed', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
-            Text(provider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
-            const SizedBox(height: 32),
+            Text(provider.errorMessage!, textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 24),
             SizedBox(
-              width: 200,
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => provider.connectToFirebase(),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
-                child: const Text('RETRY CONNECTION'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue, 
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('RETRY CONNECTION', style: TextStyle(fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 12),
