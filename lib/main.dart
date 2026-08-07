@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_provider.dart';
 import 'screens/setup_screen.dart';
@@ -7,6 +8,15 @@ import 'screens/dashboard_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // ENGINE A (FOUNDATION): Initialize the default app immediately.
+  // This stays running in the background and is never "deleted".
+  try {
+    await Firebase.initializeApp();
+    debugPrint('Main: Engine A (Foundation) initialized');
+  } catch (e) {
+    debugPrint('Main: Engine A was already initialized');
+  }
+
   runApp(
     ChangeNotifierProvider(
       create: (_) => AppProvider(),
@@ -46,19 +56,19 @@ class AppRoot extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<AppProvider>(
       builder: (context, provider, child) {
-        // 1. Wait for local storage to load (usually < 100ms)
+        // 1. Wait for local storage to load
         if (!provider.isConfigLoaded) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
 
-        // 2. Decide based on Project ID
+        // 2. Decide based on Home ID (Project ID)
         if (provider.homeId == null) {
           return const SetupScreen();
         }
 
-        // 3. Show Dashboard (it handles its own loading spinner internally)
+        // 3. Show Dashboard
         return const DashboardScreen();
       },
     );

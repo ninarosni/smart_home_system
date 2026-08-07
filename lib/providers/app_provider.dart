@@ -74,7 +74,7 @@ class AppProvider with ChangeNotifier {
     _loadingTimeoutTimer?.cancel();
     _loadingTimeoutTimer = Timer(const Duration(seconds: 30), () {
       if (_isLoading) {
-        _errorMessage = 'Connection timed out. Check your internet or credentials.';
+        _errorMessage = 'Connection timed out. Check your settings.';
         _isLoading = false;
         notifyListeners();
       }
@@ -108,42 +108,38 @@ class AppProvider with ChangeNotifier {
     
     _isLoading = true;
     _errorMessage = null;
-    _loadingStatus = 'Connecting...';
+    _loadingStatus = 'Hard Disconnecting...';
     notifyListeners();
     
     _startLoadingTimeout();
 
     try {
-      // 1. Clean shutdown of previous connection
       await _subscription?.cancel();
       _subscription = null;
       _deviceData = null;
-      _errorMessage = null; // Clear old errors
-      notifyListeners();
       
       try {
         await Firebase.app().delete();
-        // SAFE DELAY: Give the OS half a second to release network ports
-        await Future.delayed(const Duration(milliseconds: 500));
-        debugPrint('AppProvider: Firebase instance purged');
+        await Future.delayed(const Duration(milliseconds: 600));
       } catch (_) {}
 
-      // 2. Determine Connection Strategy
-      if (_apiKey != null || _databaseUrl != null || _firebaseProjectId != null) {
+      _loadingStatus = 'Regrowing Connection...';
+      notifyListeners();
+
+      if (_apiKey != null && _databaseUrl != null) {
         await Firebase.initializeApp(
           options: FirebaseOptions(
-            apiKey: _apiKey ?? '', 
+            apiKey: _apiKey!,
             appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
             messagingSenderId: _messagingSenderId ?? '517039773968',
             projectId: _firebaseProjectId ?? 'smart-home-dc84e',
-            databaseURL: _databaseUrl ?? 'https://smart-home-dc84e-default-rtdb.asia-southeast1.firebasedatabase.app',
+            databaseURL: _databaseUrl!,
           ),
         );
       } else {
         await Firebase.initializeApp();
       }
 
-      // 3. Authenticate
       final email = _authEmail ?? "smarthome@project.com";
       final password = _authPassword ?? "123456";
       
@@ -152,7 +148,6 @@ class AppProvider with ChangeNotifier {
         password: password,
       );
 
-      // 4. Start Data Stream
       _firebaseService = FirebaseService(
         homeId: _homeId!,
         databaseUrl: _databaseUrl,
@@ -169,38 +164,37 @@ class AppProvider with ChangeNotifier {
         },
         onError: (error) {
           _loadingTimeoutTimer?.cancel();
-          _errorMessage = 'Database Access Denied or Missing Path.';
+          _errorMessage = 'Access Denied: Check Rules or Path.';
           _isLoading = false;
           notifyListeners();
         },
       );
     } catch (e) {
-      debugPrint('AppProvider: Connection FATAL ERROR: $e');
-      _errorMessage = 'Failed to connect. Check API Key and URL.';
+      _errorMessage = 'Connection Failed: Check Keys/Network.';
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<void> setHomeId(String id) async {
-    _homeId = id;
-    await _storageService.saveHomeId(id);
-    await connectToFirebase();
-  }
-
-  Future<void> updateFirebaseConfig({
+  // ATOMIC APPLY: Save everything first, then reconnect once.
+  Future<void> applyAllSettings({
     required String projectId,
     required String databaseUrl,
     required String apiKey,
     required String appId,
     required String messagingSenderId,
+    required String email,
+    required String password,
   }) async {
     _firebaseProjectId = projectId.isEmpty ? null : projectId;
     _databaseUrl = databaseUrl.isEmpty ? null : databaseUrl;
     _apiKey = apiKey.isEmpty ? null : apiKey;
     _appId = appId.isEmpty ? null : appId;
     _messagingSenderId = messagingSenderId.isEmpty ? null : messagingSenderId;
+    _authEmail = email.isEmpty ? null : email;
+    _authPassword = password.isEmpty ? null : password;
 
+    // 1. Save all to storage
     await _storageService.saveFirebaseConfig(
       projectId: _firebaseProjectId ?? '',
       databaseUrl: _databaseUrl ?? '',
@@ -208,14 +202,18 @@ class AppProvider with ChangeNotifier {
       appId: _appId ?? '',
       messagingSenderId: _messagingSenderId ?? '',
     );
+    await _storageService.saveAuthCredentials(
+      _authEmail ?? '',
+      _authPassword ?? '',
+    );
 
+    // 2. Trigger exactly ONE reconnection cycle
     await connectToFirebase();
   }
 
-  Future<void> updateAuthCredentials(String email, String password) async {
-    _authEmail = email.isEmpty ? null : email;
-    _authPassword = password.isEmpty ? null : password;
-    await _storageService.saveAuthCredentials(_authEmail ?? '', _authPassword ?? '');
+  Future<void> setHomeId(String id) async {
+    _homeId = id;
+    await _storageService.saveHomeId(id);
     await connectToFirebase();
   }
 
@@ -241,7 +239,7 @@ class AppProvider with ChangeNotifier {
     try {
       await _firebaseService?.updateActuator(actuator, value);
     } catch (e) {
-      _errorMessage = 'Toggle Failed: ${e.toString()}';
+      _errorMessage = 'Control Failed: ${e.toString()}';
       notifyListeners();
     }
   }

@@ -55,16 +55,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
           if (_isEditing)
             TextButton(
               onPressed: () async {
-                await provider.updateFirebaseConfig(
+                await provider.applyAllSettings(
                   projectId: _projectIdController.text.trim(),
                   databaseUrl: _dbUrlController.text.trim(),
                   apiKey: _apiKeyController.text.trim(),
                   appId: _appIdController.text.trim(),
                   messagingSenderId: _senderIdController.text.trim(),
-                );
-                await provider.updateAuthCredentials(
-                  _emailController.text.trim(),
-                  _passwordController.text.trim(),
+                  email: _emailController.text.trim(),
+                  password: _passwordController.text.trim(),
                 );
                 if (mounted) {
                   setState(() => _isEditing = false);
