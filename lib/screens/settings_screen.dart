@@ -187,65 +187,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _showProvisioningWizard(BuildContext context, AppProvider provider) {
-    final ssidController = TextEditingController();
-    final passController = TextEditingController();
-    bool isSyncing = false;
-
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Provision Hardware'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (!isSyncing) ...[
-                  const Text('1. Connect your phone to the ESP32 Wi-Fi:', style: TextStyle(fontSize: 12)),
-                  const Text('"SmartHome-Setup"', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
-                  const SizedBox(height: 16),
-                  const Text('2. Enter your Home Wi-Fi details:', style: TextStyle(fontSize: 12)),
-                  const SizedBox(height: 8),
-                  _buildTextField(ssidController, 'WiFi Name (SSID)', Icons.wifi),
-                  const SizedBox(height: 8),
-                  _buildTextField(passController, 'WiFi Password', Icons.lock_outline, obscure: true),
-                ] else ...[
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 16),
-                  const Text('Sending configuration...', textAlign: TextAlign.center),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            if (!isSyncing) ...[
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
-              ElevatedButton(
-                onPressed: () async {
-                  if (ssidController.text.isEmpty) return;
-                  setDialogState(() => isSyncing = true);
-                  
-                  final success = await provider.provisionHardware(
-                    wifiSsid: ssidController.text.trim(),
-                    wifiPass: passController.text.trim(),
-                  );
-                  
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(success ? 'Provisioning Successful! ESP32 Restarting...' : 'Provisioning Failed. Check ESP32 Connection.'),
-                        backgroundColor: success ? Colors.green : Colors.red,
-                      ),
-                    );
-                  }
-                },
-                child: const Text('PUSH CONFIG'),
-              ),
-            ]
-          ],
+      builder: (context) => AlertDialog(
+        title: const Text('Provision Hardware'),
+        content: const Text(
+          'This will send your current Firebase credentials to the physical ESP32 device through the cloud.\n\n'
+          '1. Ensure your ESP32 is currently ONLINE.\n'
+          '2. Click "TELEPORT" to move the hardware to your new database.',
         ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('CANCEL')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await provider.teleportHardware();
+                if (context.mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Teleporting Hardware... ESP32 jumping soon!')),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Teleport Failed: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('TELEPORT'),
+          ),
+        ],
       ),
     );
   }

@@ -76,6 +76,19 @@ class FirebaseService {
   Future<void> setOperationMode(bool isAuto) =>
       _db.ref('homes/$homeId/system/auto').set(isAuto);
 
+  // DISPATCHER: Sends new credentials to the hardware through the cloud
+  Future<void> sendMigrationCommand(UserFirebaseConfig config) async {
+    final payload = {
+      'apiKey': config.apiKey,
+      'appId': config.appId,
+      'messagingSenderId': config.messagingSenderId,
+      'projectId': config.projectId,
+      'databaseUrl': config.databaseUrl,
+      'timestamp': ServerValue.timestamp, // To trigger the ESP32 listener
+    };
+    await _db.ref('homes/$homeId/provisioning').set(payload);
+  }
+
   Future<void> disconnect() async {
     if (appInstance.name == _userAppName) {
       await appInstance.delete();

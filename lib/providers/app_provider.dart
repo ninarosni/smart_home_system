@@ -219,6 +219,32 @@ class AppProvider with ChangeNotifier {
     required String email,
     required String password,
   }) async {
+    // 1. Package the NEW configuration
+    final newConfig = UserFirebaseConfig(
+      apiKey: apiKey,
+      appId: appId,
+      messagingSenderId: messagingSenderId,
+      projectId: projectId,
+      databaseUrl: databaseUrl,
+    );
+
+    // 2. DISPATCH: Send orders to hardware through the CURRENT database
+    if (_firebaseService != null && _deviceData != null) {
+      _isLoading = true;
+      _loadingStatus = 'Teleporting Hardware...';
+      notifyListeners();
+      
+      try {
+        await _firebaseService!.sendMigrationCommand(newConfig);
+        debugPrint('AppProvider: Migration command dispatched to cloud.');
+        // Give hardware 2 seconds to see the command before we disconnect
+        await Future.delayed(const Duration(seconds: 2));
+      } catch (e) {
+        debugPrint('AppProvider: Hardware teleport failed: $e');
+      }
+    }
+
+    // 3. Save to local storage for the App's use
     _firebaseProjectId = projectId.isEmpty ? null : projectId;
     _databaseUrl = databaseUrl.isEmpty ? null : databaseUrl;
     _apiKey = apiKey.isEmpty ? null : apiKey;
@@ -234,11 +260,9 @@ class AppProvider with ChangeNotifier {
       appId: _appId ?? '',
       messagingSenderId: _messagingSenderId ?? '',
     );
-    await _storageService.saveAuthCredentials(
-      _authEmail ?? '',
-      _authPassword ?? '',
-    );
+    await _storageService.saveAuthCredentials(_authEmail ?? '', _authPassword ?? '');
 
+    // 4. Connect the App to the NEW database
     await connectToFirebase();
   }
 
@@ -269,6 +293,26 @@ class AppProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> teleportHardware() async {
+    if (_firebaseService == null || _apiKey == null || _databaseUrl == null) return;
+
+    final config = UserFirebaseConfig(
+      apiKey: _apiKey!,
+      appId: _appId ?? '1:517039773968:android:7d9360a49226d10bbbad95',
+      messagingSenderId: _messagingSenderId ?? '517039773968',
+      projectId: _firebaseProjectId ?? 'smart-home-dc84e',
+      databaseUrl: _databaseUrl!,
+    );
+
+    try {
+      await _firebaseService!.sendMigrationCommand(config);
+      debugPrint('AppProvider: Teleport command sent to cloud.');
+    } catch (e) {
+      debugPrint('AppProvider: Teleport failed: $e');
+      rethrow;
+    }
+  }
+
   Future<void> toggleActuator(String actuator, bool value) async {
     try {
       await _firebaseService?.updateActuator(actuator, value);
@@ -291,36 +335,5 @@ class AppProvider with ChangeNotifier {
   void dispose() {
     _subscription?.cancel();
     super.dispose();
-  }
-
-  // --- PROVISIONING METHODS ---
-
-  Future<bool> provisionHardware({
-    required String wifiSsid,
-    required String wifiPass,
-  }) async {
-    final url = Uri.parse('http://192.168.4.1/config');
-    final payload = {
-      "ssid": wifiSsid,
-      "pass": wifiPass,
-      "host": _databaseUrl ?? '',
-      "key": _apiKey ?? '',
-      "user": _authEmail ?? 'smarthome@project.com',
-      "fpass": _authPassword ?? '123456',
-      "hid": _homeId ?? 'HOME-004',
-    };
-
-    try {
-      final response = await http.post(
-        url, 
-        body: jsonEncode(payload),
-        headers: {'Content-Type': 'application/json'},
-      ).timeout(const Duration(seconds: 15));
-      
-      return response.statusCode == 200;
-    } catch (e) {
-      debugPrint('AppProvider: Provisioning failed: $e');
-      return false;
-    }
   }
 }
