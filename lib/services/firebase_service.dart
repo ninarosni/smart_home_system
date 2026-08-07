@@ -1,7 +1,6 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
-import '../models/device_data.dart';
-import '../models/user_firebase_config.dart';
+import '../models/home_models.dart';
 
 class FirebaseService {
   FirebaseService._({

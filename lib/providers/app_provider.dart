@@ -2,8 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../models/device_data.dart';
-import '../models/user_firebase_config.dart';
+import '../models/home_models.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
 
