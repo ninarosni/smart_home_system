@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/home_models.dart';
 import '../services/firebase_service.dart';
 import '../services/storage_service.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class AppProvider with ChangeNotifier {
   final StorageService _storageService = StorageService();
@@ -193,10 +194,15 @@ class AppProvider with ChangeNotifier {
       debugPrint('AppProvider: Connection FATAL: $e');
       // CLEAN ERROR PARSING: Extract only the main reason from the complex stacktrace
       String msg = e.toString();
-      if (msg.contains('invalid-api-key')) msg = 'Invalid API Key';
-      else if (msg.contains('project-not-found')) msg = 'Project Not Found';
-      else if (msg.contains('ApplicationId must be set')) msg = 'Missing App ID (Required for custom projects)';
-      else if (msg.contains(']')) msg = msg.split(']').last.trim();
+      if (msg.contains('invalid-api-key')) {
+        msg = 'Invalid API Key';
+      } else if (msg.contains('project-not-found')) {
+        msg = 'Project Not Found';
+      } else if (msg.contains('ApplicationId must be set')) {
+        msg = 'Missing App ID (Required for custom projects)';
+      } else if (msg.contains(']')) {
+        msg = msg.split(']').last.trim();
+      }
       
       _errorMessage = 'Handshake Failed: $msg';
       _isLoading = false;
@@ -285,5 +291,36 @@ class AppProvider with ChangeNotifier {
   void dispose() {
     _subscription?.cancel();
     super.dispose();
+  }
+
+  // --- PROVISIONING METHODS ---
+
+  Future<bool> provisionHardware({
+    required String wifiSsid,
+    required String wifiPass,
+  }) async {
+    final url = Uri.parse('http://192.168.4.1/config');
+    final payload = {
+      "ssid": wifiSsid,
+      "pass": wifiPass,
+      "host": _databaseUrl ?? '',
+      "key": _apiKey ?? '',
+      "user": _authEmail ?? 'smarthome@project.com',
+      "fpass": _authPassword ?? '123456',
+      "hid": _homeId ?? 'HOME-004',
+    };
+
+    try {
+      final response = await http.post(
+        url, 
+        body: jsonEncode(payload),
+        headers: {'Content-Type': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+      
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('AppProvider: Provisioning failed: $e');
+      return false;
+    }
   }
 }
